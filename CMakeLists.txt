@@ -1,0 +1,12 @@
+cmake_minimum_required(VERSION 3.7)
+project(ps)
+
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -lzmq -L /usr/local/lib")
+set(SOURCE_FILES main.cpp constant.h log.h)
+add_executable(main ${SOURCE_FILES})
+set(SOURCE_FILES server.cpp)
+add_executable(server ${SOURCE_FILES})
+set(SOURCE_FILES worker.cpp)
+add_executable(worker ${SOURCE_FILES})
+include_directories("/usr/local/include")
