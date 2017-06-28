@@ -51,29 +51,30 @@ void pullFromIP(void* args){
     msg.type = PULL;
     msg.start = data->start;
     msg.end = data->end;
-    log("send PULL to server" + to_string(index), file);
     string str = msg.toString();
-    log("send msg =  to server" + to_string(index) +" "+ str, file);
-    log("send  to server" + to_string(index) +" msg.size = "+ to_string(str.size()), file);
-    zmq_send(socket, str.c_str(), str.size(), 0);
-    log("send to server" + to_string(index) + "done", file);
+    log("send  to server" + to_string(index) +" msg.size = "+ to_string(str.size()) + " msg = " + msg.head(), file);
+    char buffer[str.size() + 1];
+    for(int i = 0; i <= str.size(); i++) {
+        buffer[i] = str[i];
+    }
+    buffer[str.size()] = '\0';
+    zmq_send(socket, buffer, strlen(buffer), 0);
+//    zmq_send(socket, str.c_str(), str.size(), 0);
     char tmp[M*N*(8 + 1)];
-//    log("tmp for receive size = " + to_string(M*N*(8 + 1))   + " from server" + to_string(index), file);
     zmq_recv(socket, tmp, M*N*(8 + 1), 0);
     log("tmp for receive size = " + to_string(strlen(tmp))   + " from server" + to_string(index), file);
-    int len = strlen(tmp);
-    log("res from" + to_string(index) + " len = " + to_string(len)  + " from server" + to_string(index),file);
     log(tmp, file);
-    Data tmpd = Data(tmp, file);
+    log("tmp up",file);
+    Data result = Data(tmp);
+//    delete[] tmp;
     log("parse right from server" + to_string(index), file);
-    if(tmpd.start != -1) {
-        data->addData(tmpd.start, tmpd.end, tmpd.data);
+    if(result.start != -1) {
+        data->addData(result.start, result.end, result.data);
         log("server "+ to_string(index) + " has pulled right data", file);
     }
     else {
         log("server "+ to_string(index) + " has no data for this node", file);
     }
-    log("pull done", file);
 }
 
 /**
@@ -100,15 +101,15 @@ void* push(void* args) {
         index ++;
     }
     error->type = PUSH;
-
     string str = error->toString();
-    log("hasItered = " + to_string(hasItered) + " send PUSH to server " + to_string(index) + "error.size " + to_string(str.size()) , file);
+    log("hasItered = " + to_string(hasItered) + " send PUSH to server " + to_string(index) + " error.size " + to_string(str.size()) , file);
     zmq_send(socket, str.c_str(), str.size(), 0);
     char tmp[500 * (sizeof(double) + 1)];
     zmq_recv(socket, tmp, 500 * (sizeof(double) + 1), 0);
-    string s = tmp;
-    log("receive push from server " + to_string(index) + " size =  " + to_string(s.size()),file);
+    log("receive push from server " + to_string(index) + " size =  " + to_string(strlen(tmp)),file);
+    log(tmp, file);
     Data msg = Data(tmp);
+//    delete[] tmp;
     weight->addData(msg.start, msg.end, msg.data);
     return NULL;
 }
@@ -157,33 +158,26 @@ void* start_worker(void* args) {
         sockets[i] = socket;
     }
 
-    vector<pthread_t*> threads;
+//    vector<pthread_t*> threads;
     for(int i =0; i < node->linksNum; i++) {
-//        pthread_t id;
         void* socket = sockets[i];
-//        pthread_create(&id,NULL,pull, socket);
-//        threads.push_back(&id);
         pull(socket);
     }
-//    for(int i =0; i < node->linksNum; i++) {
-//        pthread_join(*(threads[i]),NULL);
-//    }
-    log("check data : " + data->toString(), file);
-//    threads.clear();
     log("pull finished", file);
     for(int k =0; k < ITERATOR * 2; k++) {
         calc();
         for(int i = 0; i < node->linksNum; i++) {
-            pthread_t id;
+//            pthread_t id;
             void* socket = sockets[i];
-            pthread_create(&id,NULL,push, socket);
-            threads.push_back(&id);
+            push(socket);
+//            pthread_create(&id,NULL,push, socket);
+//            threads.push_back(&id);
         }
-        for(int i =0; i < threads.size(); i++) {
-            pthread_join(*(threads[i]),NULL);
-        }
+//        for(int i =0; i < threads.size(); i++) {
+//            pthread_join(*(threads[i]),NULL);
+//        }
         hasItered ++;
-        threads.clear();
+//        threads.clear();
         if(hasItered >= ITERATOR) {
             break;
         }

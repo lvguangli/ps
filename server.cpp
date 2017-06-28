@@ -233,22 +233,28 @@ void* receive(void *args) {
         int maxLen = M * sizeof(double);
         char tmp[M * sizeof(double)];
         zmq_recv(socket, tmp, maxLen, 0);
-        string str = tmp;
-        log("receive from worker" + to_string(index) + " msg.size = " + to_string(str.size()) , file);
-        Data *msg = new Data(str);
-//        log(msg->toString(), file);
-        if (msg->type == OK) {
+//        string str = tmp;
+        log("receive from worker" + to_string(index) + " msg.size = " + to_string(strlen(tmp)) , file);
+        if(strlen(tmp) < 10) {
+            log(tmp, file);
+        }
+        Data msg = Data(tmp);
+        log("parse right from worker" + to_string(index),file);
+//        delete[] tmp;
+        log(msg.head(), file);
+        log(to_string(msg.type),file);
+        if (msg.type == OK) {
             log("receive OK", file);
-        } else if (msg->type == ADDNODE) {
+        } else if (msg.type == ADDNODE) {
             log("receive ADDNODE", file);
-        } else if (msg->type == PUSH) {
+        } else if (msg.type == PUSH) {
             log("receive PUSH", file);
-            responsePUSH(socket, msg);
+            responsePUSH(socket, &msg);
             break;
-        } else if (msg->type == PULL) {
+        } else if (msg.type == PULL) {
             log("receive PULL from worker" + to_string(index), file);
-            responsePULL(socket,index, msg);
-        } else if (msg->type == STOP) {
+            responsePULL(socket,index, &msg);
+        } else if (msg.type == STOP) {
             log("receive STOP", file);
         } else {
             log("error msg->type", file);
