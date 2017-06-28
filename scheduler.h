@@ -20,6 +20,7 @@ void* call(void * args) {
     log(shell, file);
     int r = system(shell.c_str());
     cout <<"call r="<<r<<endl;
+    return NULL;
 }
 
 void startNode(Node* node) {
@@ -38,8 +39,8 @@ void startNode(Node* node) {
     ofstream out(file,ios::out);
     out<<cmd<<endl;
     out.close();
-    pthread_t id;
-    pthread_create( &id, NULL, call, (void*)file.c_str());
+//    pthread_t id;
+//    pthread_create( &id, NULL, call, (void*)file.c_str());
 }
 
 void* sendMsg(void* socket) {
@@ -51,6 +52,7 @@ void* sendMsg(void* socket) {
     if(r < 0) {
         log("send fail");
     }
+    return NULL;
 }
 
 void startScheduler(unordered_map<int, Node*> servers, unordered_map<int, Node*> workers,Node* scheduler) {
@@ -61,7 +63,7 @@ void startScheduler(unordered_map<int, Node*> servers, unordered_map<int, Node*>
         startNode(servers[i]);
 //        sockets[i] = reqListener(servers[i]->getTCP());
     }
-    sleep(2);
+    sleep(3);
     int wLen = workers.size();
     for(int i = 0; i < wLen; i++) {
         startNode(workers[i]);

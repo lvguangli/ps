@@ -2,11 +2,11 @@
 #include <zmq.h>
 #include<unordered_map>
 #include <cstring>
-#include "scheduler.h"
 #include "node.h"
 #include "constant.h"
 #include <pthread.h>
 #include <unistd.h>
+#include "log.h"
 
 /**
  * scheduler
@@ -17,19 +17,40 @@ unordered_map<int, Node*> workers;
 unordered_map<int, Node*> servers;
 Node* scheduler;
 
+void startNode(Node* node) {
+//    string cmd = "ssh -o StrictHostKeyChecking=no " + node->host + " 'cd /Users/sahara/CLionProjects/ps; ";
+    string cmd = "ssh sahara@" + node->host + " && cd /Users/sahara/CLionProjects/ps && ";
+    if(node->name[0] == 's') {
+        cmd = cmd + "./server " + node->toString();
+    } else if(node->name[0] == 'w') {
+        cmd = cmd + "./worker " + node->toString();
+    }
+    cmd = cmd + " &";
+    string file = node->name + "fork.sh";
+    cout<<cmd.c_str()<<endl;
+    ofstream out(file,ios::out);
+    out<<cmd<<endl;
+    out.close();
+}
 
+void generateScript() {
+    unordered_map<int, void*> sockets;
+    for(int i = 0; i < servers.size(); i++) {
+        startNode(servers[i]);
+    }
+    for(int i = 0; i < workers.size(); i++) {
+        startNode(workers[i]);
+    }
 
-
+}
 
 void bindSW(Node* s, Node* w) {
     s->addLinks(w->getTCP());
     w->addLinks(s->getTCP());
 }
-void* start(void* agrs) {
-    startScheduler(servers, workers, scheduler);
-}
 
 int main(int argc, char *argv[]) {
+//    system("sh rmLog.sh");
     log("scheduler.txt");
     scheduler = new Node("scheduler",0,schedulerIP[0], schedulerIP[1], "");
     for (int i =0; i<serverN ; i++){
@@ -43,7 +64,7 @@ int main(int argc, char *argv[]) {
         string host = whosts[i - serverN][0];
         string port = whosts[i - serverN][1];
         string name = "worker" + to_string(i - serverN);
-        Node* nodePtr = new Node(name, i - serverN, host, port, scheduler->getTCP());
+        Node* nodePtr = new Node(name, i- serverN, host, port, scheduler->getTCP());
         workers[i - serverN] = nodePtr;
     }
     for(int i = 0; i < serverN; i++) {
@@ -51,10 +72,7 @@ int main(int argc, char *argv[]) {
             bindSW(servers[i], workers[j]);
         }
     }
-    pthread_t id;
-    pthread_create( &id, NULL, start, NULL);
-
+    generateScript();
     cout << "Hello, World!" << std::endl;
-    pthread_join(id,NULL);
     return 0;
 }

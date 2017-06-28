@@ -140,9 +140,18 @@ public:
             data.push_back(vector2);
         }
     }
+    void initData(int len, int value) {
+        data.reserve(len);
+        for(int i =0; i< len; i++) {
+            vector<double> vector2;
+            vector2.push_back(value);
+            data.push_back(vector2);
+        }
+    }
+
     void addData(int start, int end, vector<vector<double>> d) {
         for(int i = start; i < end; i++) {
-            data[i] = d[i - start];
+            data[i-this->start] = d[i - start];
         }
     }
 
@@ -169,6 +178,7 @@ public:
                 }
             }
         }
+        sb.Append("\0");
         return sb.toString();
     }
 
@@ -218,6 +228,7 @@ public:
             if(str[k] == ' ') {
                 second ++;
             }
+            k++;
         }
         int len = str.size();
         while(cur < len) {
@@ -246,8 +257,44 @@ public:
             if(str[k] == ' ') {
                 second ++;
             }
+            k++;
         }
         while(cur < len) {
+            vector<double> vector2;
+            for(int i = 0; i< second - 1; i++) {
+                vector2.push_back(getDouble(str, &cur, ' '));
+            }
+            vector2.push_back(getDouble(str, &cur, '\n'));
+            data.push_back(vector2);
+        }
+    }
+
+    Data(char* str,string file) {
+        int len = strlen(str);
+        int cur = 0;
+//        log("test data parse param1", file);
+        int one = getInt(str, &cur, ' ');
+//        log("test data parse param2", file);
+        type = msg_type(one);
+        start = getInt(str, &cur, ' ');
+//        log("test data parse param3", file);
+        end = getInt(str, &cur, '\n');
+//        log("test data parse param4", file);
+        if(cur >= len) {
+            return;
+        }
+        int second = 1;
+        int k = cur;
+        while(str[k] != '\n') {
+            if(str[k] == ' ') {
+                second ++;
+            }
+            k++;
+        }
+//        log("test data parse param5", file);
+        while(cur < len) {
+//            log("cur = " + to_string(cur), file);
+//            log("len = " + to_string(len), file);
             vector<double> vector2;
             for(int i = 0; i< second - 1; i++) {
                 vector2.push_back(getDouble(str, &cur, ' '));
@@ -260,16 +307,16 @@ public:
     Data(string str,string file) {
         int cur = 0;
         int one = getInt(str, &cur, ' ');
-        log("str = "+str, file);
-        log("one = " + to_string(one), file);
-        log("cur = " + to_string(cur), file);
+//        log("str = "+str, file);
+//        log("one = " + to_string(one), file);
+//        log("cur = " + to_string(cur), file);
         type = msg_type(one);
         start = getInt(str, &cur, ' ');
-        log("start = " + to_string(start), file);
-        log("cur = " + to_string(cur), file);
+//        log("start = " + to_string(start), file);
+//        log("cur = " + to_string(cur), file);
         end = getInt(str, &cur, '\n');
-        log("end = " + to_string(end), file);
-        log("cur = " + to_string(cur), file);
+//        log("end = " + to_string(end), file);
+//        log("cur = " + to_string(cur), file);
         if(cur >= str.size()) {
             return;
         }
@@ -279,6 +326,7 @@ public:
             if(str[k] == ' ') {
                 second ++;
             }
+            k++;
         }
         int first = 0;
         while(cur < str.size()) {

@@ -3,7 +3,7 @@ project(ps)
 
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -lzmq -L /usr/local/lib")
-set(SOURCE_FILES main.cpp constant.h log.h StringBuilder.h)
+set(SOURCE_FILES generateScript.cpp constant.h log.h StringBuilder.h)
 add_executable(main ${SOURCE_FILES})
 set(SOURCE_FILES server.cpp)
 add_executable(server ${SOURCE_FILES})

@@ -22,9 +22,11 @@ void* repListener(string ip) {
     }
 //    cout<<"ip=" <<ip<<endl;
     int r = zmq_bind(socket, ip.c_str());
-//    cout<<"zmq_errno() = "<<zmq_errno()<<endl;
+    cout<<"zmq_errno() = "<<zmq_errno()<<endl;
     if(context == NULL || socket == NULL || r < 0) {
-        cout<<"bind fail"<<endl;
+        cout<<"bind fail ip = "<<ip<<endl;
+        zmq_close(socket);
+        zmq_ctx_destroy(context);
         return NULL;
     } else {
         cout<<"bind success"<<endl;
