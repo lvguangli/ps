@@ -7,15 +7,20 @@
 #include<iostream>
 #include<fstream>
 using namespace std;
-void log(string content)
+void log(string file){
+    ofstream out(file,ios::out);
+    out<<"";
+    out.close();
+}
+void log(string content,string file)
 {
-    ofstream out("log",ios::app);
+    ofstream out(file,ios::app);
     out<<content<<endl;
     out.close();
 }
-void log(char* content)
+void log(char* content, string file)
 {
-    ofstream out("log",ios::app);
+    ofstream out(file,ios::app);
     out<<content<<endl;
     out.close();
 }

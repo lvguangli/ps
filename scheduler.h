@@ -13,28 +13,40 @@
 #include <unistd.h>
 #include "log.h"
 using namespace std;
+string file = "scheduler.txt";
 void* call(void * args) {
-    log((char*)args);
-    system((char*) args);
+    string shell = (char*)args;
+    shell = "sh " + shell;
+    log(shell, file);
+    int r = system(shell.c_str());
+    cout <<"call r="<<r<<endl;
 }
 
 void startNode(Node* node) {
-    string cmd = "ssh -o StrictHostKeyChecking=no " + node->host + " 'cd /Users/sahara/CLionProjects/ps; ";
+//    cout<<"scheduler::startNode"<<endl;
+
+//    string cmd = "ssh -o StrictHostKeyChecking=no " + node->host + " 'cd /Users/sahara/CLionProjects/ps; ";
+    string cmd = "ssh sahara@" + node->host + " && cd /Users/sahara/CLionProjects/ps && ";
     if(node->name[0] == 's') {
-        cmd = cmd + "./server " + node->toString() + "'";
+        cmd = cmd + "./server " + node->toString();
     } else if(node->name[0] == 'w') {
-        cmd = cmd + "./worker " + node->toString() + "'";
-    } else {
-        cout<<node->name<<endl;
+        cmd = cmd + "./worker " + node->toString();
     }
+    cmd = cmd + " &";
+    string file = node->name + "fork.sh";
+    cout<<cmd.c_str()<<endl;
+    ofstream out(file,ios::out);
+    out<<cmd<<endl;
+    out.close();
     pthread_t id;
-    pthread_create( &id, NULL, call, (void*)cmd.c_str());
+    pthread_create( &id, NULL, call, (void*)file.c_str());
 }
 
 void* sendMsg(void* socket) {
-    log("try to send msg");
-    Message* message = new Message();
-    message->type = OK;
+//    cout<<"scheduler::sendMsg"<<endl;
+    log("try to send msg", file);
+    Data* message = new Data();
+    message->type = ADDNODE;
     int r = zmq_send(socket, message, sizeof(message), 0);
     if(r < 0) {
         log("send fail");
@@ -42,20 +54,33 @@ void* sendMsg(void* socket) {
 }
 
 void startScheduler(unordered_map<int, Node*> servers, unordered_map<int, Node*> workers,Node* scheduler) {
+//    cout<<"scheduler::startScheduler"<<endl;
     unordered_map<int, void*> sockets;
-    int sLen = 1;//servers.size();
+    int sLen = servers.size();
     for(int i = 0; i < sLen; i++) {
         startNode(servers[i]);
-        sockets[i] = reqListener(servers[i]->getTCP());
+//        sockets[i] = reqListener(servers[i]->getTCP());
     }
-//    int wLen = workers.size();
-//    for(int i = 0; i < wLen; i++) {
-//        startNode(workers[i]);
+    sleep(2);
+    int wLen = workers.size();
+    for(int i = 0; i < wLen; i++) {
+        startNode(workers[i]);
 //        sockets[i + sLen] = reqListener(workers[i]->getTCP());
-//    }
+    }
+//    int a;
+    while(true) {
+        string c;
+        cin>>c;
+        if(c == "stop") {
+            return;
+        }
+        else if(c == "add") {
 
-    pthread_t id;
-    pthread_create( &id, NULL, sendMsg, sockets[0]);
+        }
+    }
+    getchar();
+//    pthread_t id;
+//    pthread_create( &id, NULL, sendMsg, sockets[0]);
 
 
 

@@ -1,0 +1,9 @@
+rm server0.txt
+rm server0fork.sh
+rm server1.txt
+rm server1fork.sh
+rm worker0.txt
+rm worker0fork.sh
+rm worker1.txt
+rm worker1fork.sh
+rm scheduler.txt

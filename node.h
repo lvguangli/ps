@@ -6,18 +6,21 @@
 #define PS_DATA_H
 #include <iostream>
 #include <cstring>
+#include <stdlib.h>
 using namespace std;
 int maxN = 3;
 class Node {
 public:
     string name;
+    int id;
     string host;
     string port;
     string schedulerIP;
     string* linksIP;
     int linksNum = 0;
-    Node(string name, string host, string port, string schedulerIP){
+    Node(string name, int id, string host, string port, string schedulerIP){
         this->name = name;
+        this->id = id;
         this->host = host;
         this->port = port;
         this->schedulerIP = schedulerIP;
@@ -32,9 +35,9 @@ public:
         return "tcp://" + host + ":" + port;
     }
     string toString(){
-        string str = name + ' ' + host + ' ' + port + ' ' + schedulerIP;
+        string str = name + " " + to_string(id) + " " + host + " " + port + " " + schedulerIP;
         for(int i=0; i < linksNum; i++) {
-            str  = str + ' ' + linksIP[i];
+            str  = str + " " + linksIP[i];
         }
         return str;
     }
