@@ -162,6 +162,7 @@ public:
         sb.Append(",");
         sb.Append(to_string(end));
         sb.Append(";");
+        string str = sb.toString();
         return sb.toString();
     }
 
@@ -189,6 +190,10 @@ public:
                 }
             }
         }
+//        string str = sb.toString();
+//        if(str.size() % 2 == 1) {
+//            str = str + "#";
+//        }
         return sb.toString();
     }
 
@@ -201,7 +206,7 @@ public:
         sb.Append(to_string(end));
         sb.Append(";");
         int first = data.size();
-        log("tostring first"+ to_string(first),file);
+//        log("tostring first"+ to_string(first),file);
         if(first > 0) {
             int second = data[0].size();
             for(int i = 0; i < first ; i++) {
@@ -216,6 +221,10 @@ public:
                 }
             }
         }
+//        string str = sb.toString();
+//        if(str.size() % 2 == 1) {
+//            str = str + "#";
+//        }
         return sb.toString();
     }
 
@@ -224,6 +233,9 @@ public:
     }
 
     Data(string str) {
+        while(str[str.size() - 1] != ';') {
+            str = str.substr(0, str.size() - 1);
+        }
         int cur = 0;
         int one = getInt(str, &cur, ',');
         type = msg_type(one);
@@ -252,6 +264,9 @@ public:
     }
 
     Data(char* str) {
+        while(str[strlen(str) - 1] != ';') {
+            str[strlen(str) - 1] = '\0';
+        }
         int len = strlen(str);
         int cur = 0;
         int one = getInt(str, &cur, ',');
@@ -280,6 +295,9 @@ public:
     }
 
     Data(char* str,string file) {
+        while(str[strlen(str) - 1] != ';') {
+            str[strlen(str) - 1] = '\0';
+        }
         int len = strlen(str);
         int cur = 0;
         log("test data parse param1", file);
@@ -315,6 +333,10 @@ public:
     }
 
     Data(string str,string file) {
+        if(str[str.size() - 1] != ';') {
+            str = str.substr(0, str.size() - 1);
+        }
+        int len = str.size();
         int cur = 0;
         int one = getInt(str, &cur, ',');
 //        log("str = "+str, file);
@@ -327,7 +349,7 @@ public:
         end = getInt(str, &cur, ';');
 //        log("end = " + to_string(end), file);
 //        log("cur = " + to_string(cur), file);
-        if(cur >= str.size()) {
+        if(cur >= len) {
             return;
         }
         int second = 1;
@@ -339,7 +361,7 @@ public:
             k++;
         }
         int first = 0;
-        while(cur < str.size()) {
+        while(cur < len) {
             for(int i = 0; i< second - 1; i++) {
                 data[first].push_back(getDouble(str, &cur, ','));
             }

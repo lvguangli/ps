@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 sh rmLog.sh
-sudo chmod u+x *.sh
-./main
+chmod u+x *.sh
+./generateScript 2 2 start
+./generateScript 2 3 middle
 sh server0fork.sh
 sh server1fork.sh
 sleep 3

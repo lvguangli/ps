@@ -1,78 +1,76 @@
 #include <iostream>
-#include <zmq.h>
 #include<unordered_map>
-#include <cstring>
 #include "node.h"
 #include "constant.h"
-#include <pthread.h>
-#include <unistd.h>
 #include "log.h"
+#include "util.h"
 
-/**
- * scheduler
- */
+
 using namespace std;
 
 unordered_map<int, Node*> workers;
 unordered_map<int, Node*> servers;
 Node* scheduler;
+string file = "generateScript.txt";
 
-void startNode(Node* node) {
-//    string cmd = "ssh -o StrictHostKeyChecking=no " + node->host + " 'cd /Users/sahara/CLionProjects/ps; ";
-    string cmd = "ssh sahara@" + node->host + " && cd /Users/sahara/CLionProjects/ps && ";
-    if(node->name[0] == 's') {
-        cmd = cmd + "./server " + node->toString();
-    } else if(node->name[0] == 'w') {
-        cmd = cmd + "./worker " + node->toString();
-    }
-    cmd = cmd + " &";
-    string file = node->name + "fork.sh";
-    cout<<cmd.c_str()<<endl;
-    ofstream out(file,ios::out);
-    out<<cmd<<endl;
-    out.close();
-}
-
-void generateScript() {
-    unordered_map<int, void*> sockets;
-    for(int i = 0; i < servers.size(); i++) {
-        startNode(servers[i]);
-    }
-    for(int i = 0; i < workers.size(); i++) {
-        startNode(workers[i]);
-    }
-
-}
-
-void bindSW(Node* s, Node* w) {
-    s->addLinks(w->getTCP());
-    w->addLinks(s->getTCP());
-}
-
-int main(int argc, char *argv[]) {
-//    system("sh rmLog.sh");
-    log("scheduler.txt");
-    scheduler = new Node("scheduler",0,schedulerIP[0], schedulerIP[1], "");
-    for (int i =0; i<serverN ; i++){
+void generateScript(char argv[3][10]) {
+    int serverNum = atoi(argv[0]);
+    int workerNum = atoi(argv[1]);
+    scheduler = new Node("scheduler",9,schedulerIP[0], schedulerIP[1], serverNum, workerNum);
+    scheduler->scheduler = scheduler;
+    for (int i =0; i<serverNum ; i++){
         string host = shosts[i][0];
         string port = shosts[i][1];
         string name = "server" + to_string(i);
-        Node* nodePtr = new Node(name,i, host, port, scheduler->getTCP());
+        Node* nodePtr = new Node(name,i, host, port, serverNum, workerNum);
+        nodePtr ->scheduler = scheduler;
         servers[i] = nodePtr;
     }
-    for (int i =serverN; i<serverN + workerN ; i++){
-        string host = whosts[i - serverN][0];
-        string port = whosts[i - serverN][1];
-        string name = "worker" + to_string(i - serverN);
-        Node* nodePtr = new Node(name, i- serverN, host, port, scheduler->getTCP());
-        workers[i - serverN] = nodePtr;
+    for (int i =serverNum; i<serverNum + workerNum; i++){
+        string host = whosts[i - serverNum][0];
+        string port = whosts[i - serverNum][1];
+        string name = "worker" + to_string(i - serverNum);
+        Node* nodePtr = new Node(name, i- serverNum, host, port, serverNum, workerNum);
+        nodePtr ->scheduler = scheduler;
+        workers[i - serverNum] = nodePtr;
     }
-    for(int i = 0; i < serverN; i++) {
-        for(int j = 0; j < workerN; j++) {
+    for(int i = 0; i < serverNum; i++) {
+        for(int j = 0; j < workerNum; j++) {
             bindSW(servers[i], workers[j]);
         }
     }
-    generateScript();
+
+    for(int i = 0; i < serverNum; i ++) {
+        scheduler->addLinks(servers[i]->getTCP());
+    }
+    for(int i = 0; i < workerNum; i ++) {
+        scheduler->addLinks(workers[i]->getTCP());
+    }
+    if(strcmp(argv[2], "start") == 0) {
+        for(int i = 0; i < servers.size(); i++) {
+            generateNodeShell(servers[i],"");
+        }
+        for(int i = 0; i < workers.size(); i++) {
+            generateNodeShell(workers[i],"");
+        }
+    }
+    else if(strcmp(argv[2], "middle") == 0){
+        generateNodeShell(workers[workerNum - 1],"");
+        generateNodeShell(scheduler, "AddNode");
+        generateNodeShell(scheduler, "StopNode");
+    }
+    else {
+        log(argv[2], file);
+    }
+}
+
+int main(int argc, char*argv[]) {
+    log(file);
+    char start[3][10] = {"2","2","start"};
+//    char middle[3][10] = {"2","3","middle"};
+    generateScript(start);
+//    generateScript(middle);
+
     cout << "Hello, World!" << std::endl;
     return 0;
 }

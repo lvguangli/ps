@@ -1,0 +1,11 @@
+start scheduler
+stop_scheduler
+scheduler tcp://192.168.1.100:12400
+scheduler connect to ip = tcp://192.168.1.100:145359
+scheduler connect to ip = tcp://192.168.1.100:143319
+scheduler connect to ip = tcp://192.168.1.100:126429
+scheduler connect to ip = tcp://192.168.1.100:126439
+ send msg to server1 error.size 7
+ send msg to server0 error.size 7
+ send msg to server2 error.size 7
+ send msg to worker1 error.size 7
