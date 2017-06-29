@@ -11,7 +11,8 @@ using namespace std;
 unordered_map<int, Node*> workers;
 unordered_map<int, Node*> servers;
 Node* scheduler;
-string file = "generateScript.txt";
+string file = "generateScript";
+int mainId = 6;
 
 void generateScript(char argv[3][10]) {
     int serverNum = atoi(argv[0]);
@@ -60,16 +61,16 @@ void generateScript(char argv[3][10]) {
         generateNodeShell(scheduler, "StopNode");
     }
     else {
-        log(argv[2], file);
+        log(argv[2], file, mainId);
     }
 }
 
 int main(int argc, char*argv[]) {
-    log(file);
+    log(file, mainId);
     char start[3][10] = {"2","2","start"};
-//    char middle[3][10] = {"2","3","middle"};
+    char middle[3][10] = {"2","3","middle"};
     generateScript(start);
-//    generateScript(middle);
+    generateScript(middle);
 
     cout << "Hello, World!" << std::endl;
     return 0;

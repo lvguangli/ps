@@ -7,20 +7,20 @@
 #include<iostream>
 #include<fstream>
 using namespace std;
-void log(string file){
-    ofstream out(file,ios::out);
+void log(string file, int index){
+    ofstream out(file + to_string(index) + ".txt",ios::out);
     out<<"";
     out.close();
 }
-void log(string content,string file)
+void log(string content,string file, int index)
 {
-    ofstream out(file,ios::app);
+    ofstream out(file  + to_string(index) + ".txt",ios::app);
     out<<content<<endl;
     out.close();
 }
-void log(char* content, string file)
+void log(char* content, string file, int index)
 {
-    ofstream out(file,ios::app);
+    ofstream out(file  + to_string(index) + ".txt",ios::app);
     out<<content<<endl;
     out.close();
 }

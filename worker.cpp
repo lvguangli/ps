@@ -17,8 +17,6 @@
 
 using namespace std;
 
-unordered_map<int,void*> sockets;
-
 string file = "worker";
 // 只计算自己worker分配的error部分 = N / workerN
 Data* error;
@@ -30,79 +28,23 @@ Data* weight;
 Data* data;
 
 int hasItered = 0;
+
+int mainId = 6;
+
+unordered_map<int,void*>* receiveSockets;
+vector<Data*>* receiveMsgList;
+vector<int>*  receiveMsgArray;
+LinkMsg* receiveLinkMsg;
+
+unordered_map<int,void*>* sendSockets;
+vector<Data*>* sendMsgList;
+vector<int>*  sendMsgArray;
+LinkMsg* sendLinkMsg;
+
 bool isAddNode = false;
 
-/**
- * 从单个server获取data
- * @param args  server index
- * @return
- */
-void* pull(void * args) {
-    log("pull",file);
-    void* socket = args;
-    int index = 0;
-    for(;;) {
-        if(socket == sockets[index]) {
-            break;
-        }
-        index ++;
-    }
-    Data msg = Data();
-    msg.type = PULL;
-    msg.start = data->start;
-    msg.end = data->end;
-    string str = msg.toString();
-    log("send  to server" + to_string(index) +" msg.size = "+ to_string(str.size()) + " msg = " + msg.head(), file);
-    zmq_send(socket, str.c_str(), str.size(), 0);
-    char tmp[M*N*(8 + 1)];
-    zmq_recv(socket, tmp, M*N*(8 + 1), 0);
-    int len = strlen(tmp);
-    log("tmp for receive size = " + to_string(strlen(tmp))   + " from server" + to_string(index), file);
-    Data result = Data(tmp);
-    if(strlen(tmp) > len) {
-        log("tmp for receive contain char can't understand" , file);
-    }
-    log("parse right from server" + to_string(index), file);
-    if(result.start != -1) {
-        data->addData(result.start, result.end, result.data);
-        log("server "+ to_string(index) + " has pulled right data", file);
-    }
-    else {
-        log("server "+ to_string(index) + " has no data for this node", file);
-    }
-    return NULL;
-}
-/**
- * 单次将error push 到 server,并接收weight
- * @param args server index
- * @return
- */
-void* push(void* args) {
-    log("push",file);
-    void* socket = args;
-    int index = 0;
-    for(;;) {
-        if(socket == sockets[index]) {
-            break;
-        }
-        index ++;
-    }
-    error->type = PUSH;
-    string str = error->toString();
-    log("hasItered = " + to_string(hasItered) + " send PUSH to server " + to_string(index) + " error.size " + to_string(str.size()) , file);
-    zmq_send(socket, str.c_str(), str.size(), 0);
-    int MAXLEN = 500 * (8 + 1);
-    char tmp[500 * (sizeof(double) + 1)];
-    zmq_recv(socket, tmp, MAXLEN, 0);
-    log("receive push from server " + to_string(index) + " size =  " + to_string(strlen(tmp)),file);
-    log(tmp, file);
-    Data msg = Data(tmp);
-    weight->addData(msg.start, msg.end, msg.data);
-    return NULL;
-}
-
 void getDataWithWorkerNum(Node* node, int index) {
-    log("getDataWithWorkerNum",file);
+    log("getDataWithWorkerNum",file, mainId);
     error = new Data();
     error->start = (M / node->workerNum + 1) * index;
     error->end = (M / node->workerNum + 1) * (index + 1);
@@ -121,7 +63,7 @@ void getDataWithWorkerNum(Node* node, int index) {
 }
 
 void getDataWithOutWorkerNum(Node* node, int index) {
-    log("getDataWithOutWorkerNum",file);
+    log("getDataWithOutWorkerNum",file, mainId);
     weight = new Data();
     weight->start = 0;
     weight->end = (N-1);
@@ -129,7 +71,7 @@ void getDataWithOutWorkerNum(Node* node, int index) {
 }
 
 void calc(){
-    log("calc",file);
+    log("calc",file, mainId);
     int count = error->end - error->start;
     for(int i = 0; i < count; i++) {
         double result = 0;
@@ -141,72 +83,177 @@ void calc(){
 }
 
 void initLocalData(void* args) {
-    log("initLocalData",file);
+    log("initLocalData",file, mainId);
     Node* node  = (Node*)args;
-    if(isAddNode) {
-        getDataWithWorkerNum(node, node->id);
-    }
-    else {
-        getDataWithWorkerNum(node, node->id);
-        getDataWithOutWorkerNum(node, node->id);
-    }
+    getDataWithWorkerNum(node, node->id);
+    getDataWithOutWorkerNum(node, node->id);
 }
 
-void initSockets(void* args) {
-    log("initSockets",file);
-    Node* node  = (Node*)args;
+void initSocketsAndLinkMsg(void* args) {
+    log("initSocketsAndLinkMsg",file, mainId);
+    Node* node =(Node*)args;
+    receiveSockets = new unordered_map<int,void*>();
+    receiveMsgList = new vector<Data*>();
+    receiveMsgArray = new vector<int>();
+    receiveLinkMsg = new LinkMsg();
+
+    sendSockets = new unordered_map<int,void*>();;
+    sendMsgList = new vector<Data*>();
+    sendMsgArray = new vector<int>();
+    sendLinkMsg = new LinkMsg();
+    for(int i = 0; i < node->serverNum; i++) {
+        string ip = node->getTCP() + to_string(i);
+        void* receiveSocket = repListener(ip);
+        if(receiveSocket != NULL) {
+            log("worker bind to ip = " + ip, file, mainId);
+        }
+        else {
+            log("worker bind fail to ip = " + ip, file, mainId);
+        }
+        (*receiveSockets)[i] = receiveSocket;
+    }
     for(int i = 0; i < node->serverNum; i++) {
         string ip = node->linksIP[i] + to_string(node->id);
-        log("connect to ip = " + ip, file);
-        void* socket = reqListener(ip);
-        log("socket " + to_string((unsigned long)socket), file);
-        sockets[i] = socket;
-    }
-}
-
-void pullData(void* args) {
-    log("pullData",file);
-    Node* node  = (Node*)args;
-    for(int i =0; i < node->serverNum; i++) {
-        void* socket = sockets[i];
-        pull(socket);
-    }
-}
-
-void pushData(void* args) {
-    log("pushData",file);
-    Node* node  = (Node*)args;
-    for(int k =0; k < ITERATOR * 2; k++) {
-        calc();
-        for(int i = 0; i < node->serverNum; i++) {
-            void* socket = sockets[i];
-            push(socket);
+        void* sendSocket = reqListener(ip);
+        if(sendSocket != NULL) {
+            log("worker connect to ip = " + ip, file, mainId);
         }
-        hasItered ++;
+        else {
+            log("worker connect fail to ip = " + ip, file, mainId);
+        }
+        (*sendSockets)[i] = sendSocket;
+    }
+    Data nullMsg = Data();
+    nullMsg.type = PULL;
+    nullMsg.timeStamp = getCurrentTime();
+    nullMsg.start = -1;
+    nullMsg.end = -1;
+    for(int i =0; i < node->serverNum; i++) {
+        receiveMsgArray->push_back(0);
+        receiveMsgList->push_back(&nullMsg);
+        sendMsgArray->push_back(0);
+        sendMsgList->push_back(&nullMsg);
+    }
+
+    sendLinkMsg->msgList = sendMsgList;
+    sendLinkMsg->msgArray = sendMsgArray;
+    sendLinkMsg->sockets = sendSockets;
+    sendLinkMsg->file = file;
+    receiveLinkMsg->msgList = receiveMsgList;
+    receiveLinkMsg->msgArray = receiveMsgArray;
+    receiveLinkMsg->sockets = receiveSockets;
+    receiveLinkMsg->file = file;
+}
+
+void tryPULL(void* args) {
+    log("tryPULL",file, mainId);
+    Node* node =(Node*)args;
+    for(int i = 0; i < sendSockets->size(); i++) {
+        Data msg = Data();
+        msg.type = PULL;
+        msg.timeStamp =getCurrentTime();
+        msg.start = data->start;
+        msg.end = data->end;
+        int start = (M / node->serverNum + 1) * i;
+        if(msg.start < start) {
+            msg.start = start;
+        }
+        int end = (M / node->serverNum + 1) * (i + 1);
+        if(msg.end > end) {
+            msg.end = end;
+        }
+        (*sendMsgList)[i] = &msg;
+        (*sendMsgArray)[i] = 0;
+    }
+    sendAllSockets(sendLinkMsg, mainId);
+    receiveAllSockets(receiveLinkMsg, mainId);
+    for(int i = 0; i < receiveSockets->size(); i++) {
+        cout<< (*receiveMsgArray)[i]<<" ";
+    }
+    cout<<endl;
+    log("tryPULL receiveAllSockets finished",file, mainId);
+    for(int i = 0; i < receiveSockets->size(); i++) {
+        if ((*receiveMsgList)[i]->type != PULL) {
+            log("receive pull error" + (*receiveMsgList)[i]->head(), file, mainId);
+            exit(1);
+        }
+        log("tryPULL " + (*receiveMsgList)[i]->toString(),file, mainId);
+        if((*receiveMsgList)[i]->start != -1) {
+            data->addData((*receiveMsgList)[i]->start, (*receiveMsgList)[i]->end, (*receiveMsgList)[i]->data);
+//            log("server "+ to_string(i) + " has pulled right data", file);
+        }
+    }
+
+
+}
+
+void tryPUSH(void* args) {
+    log("tryPUSH",file, mainId);
+    Data* msg = error;
+    msg->type = PUSH;
+    msg->start = data->start;
+    msg->end = data->end;
+    msg->timeStamp = getCurrentTime();
+    for(int i = 0; i < sendSockets->size(); i++) {
+        (*sendMsgList)[i] = msg;
+        (*sendMsgArray)[i] = 0;
+    }
+    sendAllSockets(sendLinkMsg, mainId);
+//    sleep(3);
+    receiveAllSockets(receiveLinkMsg, mainId);
+    for(int i = 0; i < receiveSockets->size(); i++) {
+        if ((*receiveMsgList)[i]->type != PUSH) {
+            log("receive push error" + (*receiveMsgList)[i]->head(), file, mainId);
+            exit(1);
+        }
+        if((*receiveMsgList)[i]->start != -1) {
+            weight->addData((*receiveMsgList)[i]->start, (*receiveMsgList)[i]->end, (*receiveMsgList)[i]->data);
+//            log("server "+ to_string(i) + " has pulled right data", file);
+        }
+    }
+}
+
+void reInitLocalData(void* args) {
+    log("reInitLocalData",file, mainId);
+    Node* node =(Node*)args;
+    getDataWithWorkerNum(node, node->id);
+}
+
+void interactWithServer(void* args) {
+    log("interactWithWorker",file, mainId);
+//    Node* node =(Node*)args;
+    tryPULL(args);
+    for(int k = 0; k < ITERATOR * 2; k++) {
+        tryPUSH(args);
+        hasItered++;
+        log("interactWithServer hasItered = " + to_string(hasItered),file, mainId);
         if(hasItered > ITERATOR) {
             break;
         }
+//        // 用来测试添加节点消息
+//        while(hasItered == ITERATOR/2 && !isAddNode) {
+//            sleep(2);
+//        }
         if(isAddNode) {
-            initLocalData(args);
-            //todo 可以优化
-            pullData(args);
+            reInitLocalData(args);
             isAddNode = false;
+            tryPULL(args);
         }
     }
 }
 
 void* listenScheduler(void* args) {
-    log("listenScheduler",file);
-    return NULL;
+    log("listenScheduler",file, mainId);
+//    return NULL;
     Node* node =(Node*)args;
     string ip = node->getTCP() + to_string(node->scheduler->id);
-    log("worker bind to ip = " + ip, file);
+    log("worker bind to ip = " + ip, file, mainId);
     void* socket = repListener(ip);
     int MAXLEN = 500 * (8 + 1);
     char tmp[500 * (sizeof(double) + 1)];
     zmq_recv(socket, tmp, MAXLEN, 0);
-    log("receive msg from scheduler size =  " + to_string(strlen(tmp)),file);
-    log(tmp, file);
+    log("receive msg from scheduler size =  " + to_string(strlen(tmp)),file, mainId);
+    log(tmp, file, mainId);
     Data msg = Data(tmp);
     if(msg.type == ADDNODE) {
         node->workerNum += 1;
@@ -214,41 +261,37 @@ void* listenScheduler(void* args) {
     } else if(msg.type == STOP) {
         exit(0);
     }
-    log("receive msg from scheduler finished",file);
+    log("receive msg from scheduler finished",file, mainId);
     return NULL;
 }
 
 void* start_worker(void* args) {
-    log("start_worker",file);
+    log("start_worker",file, mainId);
     Node* node =(Node*)args;
     // start_worker 起一个不需要等待的线程用来处理scheduler的消息
-    pthread_t id1;
-    pthread_create(&id1, NULL, listenScheduler, (void*)node);
+//    pthread_t id1;
+//    pthread_create(&id1, NULL, listenScheduler, (void*)node);
     initLocalData(args);
-    initSockets(args);
-    pullData(args);
-    pushData(args);
-    log("func start_worker finished", file);
+    initSocketsAndLinkMsg(args);
+    interactWithServer(args);
+    log("func start_worker finished", file, mainId);
     return NULL;
 }
-
-
 
 int main(int argc, char *argv[]) {
     Node* worker = new Node(argv[1]);
     for(int i = 6; i < argc; i++) {
         worker->addLinks(argv[i]);
     }
-
-    file = file + to_string(worker->id) + ".txt";
-    cout<<file<<endl;
-    log(file);
-    log("start worker", file);
-    log("worker->workerNum == worker->serverNum = " + to_string(worker->workerNum == worker->serverNum), file);
+    file = file + to_string(worker->id);
+    mainId += worker->id;
+    log(file,mainId);
+    log("start worker", file, mainId);
+//    log("worker->workerNum == worker->serverNum = " + to_string(worker->workerNum == worker->serverNum), file);
     pthread_t id;
     pthread_create(&id, NULL, start_worker, (void*)worker);
     pthread_join(id,NULL);
-    log("work "+ to_string(worker->id) + " finished", file);
+    log("work "+ to_string(worker->id) + " finished", file, mainId);
 //    sleep(10);
     // 将结果保存
 }

@@ -27,6 +27,7 @@ using namespace std;
 string file = "scheduler";
 unordered_map<int,void*> sockets;
 Node* scheduler;
+int mainId = 9;
 
 void* addNode(void* args) {
     void* socket = args;
@@ -47,13 +48,13 @@ void* addNode(void* args) {
         nodeName = "worker" + to_string(index - scheduler->serverNum);
     }
 
-    log(" send msg to " + nodeName + " error.size " + to_string(str.size()) , file);
+    log(" send msg to " + nodeName + " error.size " + to_string(str.size()) , file, mainId);
     zmq_send(socket, str.c_str(), str.size(), 0);
     int MAXLEN = 20;
     char tmp[MAXLEN];
     zmq_recv(socket, tmp, MAXLEN, 0);
     msg = Data(tmp);
-    log("receive msg from server " + to_string(index) + " size =  " + to_string(strlen(tmp)) + msg.toString(),file);
+    log("receive msg from server " + to_string(index) + " size =  " + to_string(strlen(tmp)) + msg.toString(),file, mainId);
     return NULL;
 }
 
@@ -76,26 +77,26 @@ void* stopNode(void* args) {
         nodeName = "worker" + to_string(index - scheduler->serverNum);
     }
 
-    log(" send msg to " + nodeName + " error.size " + to_string(str.size()) , file);
+    log(" send msg to " + nodeName + " error.size " + to_string(str.size()) , file, mainId);
     zmq_send(socket, str.c_str(), str.size(), 0);
     int MAXLEN = 20;
     char tmp[MAXLEN];
     zmq_recv(socket, tmp, MAXLEN, 0);
     msg = Data(tmp);
-    log("receive msg from server " + to_string(index) + " size =  " + to_string(strlen(tmp)) + msg.toString(),file);
+    log("receive msg from server " + to_string(index) + " size =  " + to_string(strlen(tmp)) + msg.toString(),file, mainId);
     return NULL;
 }
 
 void* add_scheduler(void* args) {
-    log("start_scheduler", file);
+    log("start_scheduler", file, mainId);
     Node* node =(Node*)args;
 
-    log(node->name + " " + node->getTCP(),file);
+    log(node->name + " " + node->getTCP(),file, mainId);
     for(int i = 0; i< node->linksNum; i++) {
         string ip = node->linksIP[i] + to_string(node->id);
         void* socket = reqListener(ip);
         if(socket != NULL)
-            log("scheduler connect to ip = " + ip, file);
+            log("scheduler connect to ip = " + ip, file, mainId);
         sockets[i] = socket;
     }
     vector<pthread_t*> threads;
@@ -115,15 +116,15 @@ void* add_scheduler(void* args) {
 }
 
 void* stop_scheduler(void* args) {
-    log("stop_scheduler", file);
+    log("stop_scheduler", file, mainId);
     Node* node =(Node*)args;
 
-    log(node->name + " " + node->getTCP(),file);
+    log(node->name + " " + node->getTCP(),file, mainId);
     for(int i = 0; i< node->linksNum; i++) {
         string ip = node->linksIP[i] + to_string(node->id);
         void* socket = reqListener(ip);
         if(socket != NULL)
-            log("scheduler connect to ip = " + ip, file);
+            log("scheduler connect to ip = " + ip, file, mainId);
         sockets[i] = socket;
     }
     vector<pthread_t*> threads;
@@ -136,9 +137,6 @@ void* stop_scheduler(void* args) {
             sleep(2);
         }
     }
-    for(int i =0; i < threads.size(); i++) {
-        pthread_join(*(threads[i]),NULL);
-    }
     return NULL;
 }
 
@@ -149,20 +147,18 @@ int main(int argc, char *argv[]) {
     for(int i = 6; i < argc; i++) {
         scheduler->addLinks(argv[i]);
     }
-    file = file + to_string(scheduler->id) + ".txt";
-    log(file);
-    log("start scheduler", file);
+    file = file + to_string(scheduler->id);
+    log(file, mainId);
+    log("start scheduler", file, mainId);
     if(strcmp(argv[2], "StopNode") == 0) {
         pthread_t id;
         pthread_create(&id, NULL, stop_scheduler, (void*)scheduler);
-        pthread_join(id,NULL);
     } else if(strcmp(argv[2], "AddNode") == 0){
         pthread_t id;
         pthread_create(&id, NULL, add_scheduler, (void*)scheduler);
-        pthread_join(id,NULL);
     }
-
-    log("scheduler "+ to_string(scheduler->id) + " finished", file);
+    sleep(20);
+    log("scheduler "+ to_string(scheduler->id) + " finished", file, mainId);
 
 
 }

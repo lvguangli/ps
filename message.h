@@ -13,11 +13,13 @@
 #include <cstring>
 using namespace std;
 enum msg_type {
+    UNKNOWN, //未知消息
     OK, // 消息接受
     ADDNODE, // 添加节点
     PUSH,   // worker节点push计算完成后的参数
     PULL,   // worker节点pull源数据数据
-    STOP    // 调度器终止计算
+    STOP,    // 调度器终止计算
+    ERROR   // 接受错误
 };
 
 //class Error {
@@ -75,8 +77,9 @@ private:
         }
         return s;
     }
+
     int getInt(char* str, int* cur, char delim){
-        char word[10];
+        char word[100];
         int index = 0;
         while(str[*cur] != delim) {
             word[index] = str[*cur];
@@ -87,8 +90,48 @@ private:
         (*cur)++;
         return atoi(word);
     }
+
+    long getLong(char* str, int* cur, char delim){
+        char word[100];
+        int index = 0;
+        while(str[*cur] != delim) {
+            word[index] = str[*cur];
+            index ++;
+            (*cur)++;
+        }
+        word[index] = '\0';
+        (*cur)++;
+        return atol(word);
+    }
+
+    int getInt(string str, int* cur, char delim){
+        char word[100];
+        int index = 0;
+        while(str[*cur] != delim) {
+            word[index] = str[*cur];
+            index ++;
+            (*cur)++;
+        }
+        word[index] = '\0';
+        (*cur)++;
+        return atoi(word);
+    }
+
+    long getLong(string str, int* cur, char delim){
+        char word[100];
+        int index = 0;
+        while(str[*cur] != delim) {
+            word[index] = str[*cur];
+            index ++;
+            (*cur)++;
+        }
+        word[index] = '\0';
+        (*cur)++;
+        return atol(word);
+    }
+
     double getDouble(char* str, int* cur, char delim){
-        char word[10];
+        char word[100];
         int index = 0;
         while(str[*cur] != delim) {
             word[index] = str[*cur];
@@ -100,20 +143,8 @@ private:
         return atof(word);
     }
 
-    int getInt(string str, int* cur, char delim){
-        char word[10];
-        int index = 0;
-        while(str[*cur] != delim) {
-            word[index] = str[*cur];
-            index ++;
-            (*cur)++;
-        }
-        word[index] = '\0';
-        (*cur)++;
-        return atoi(word);
-    }
     double getDouble(string str, int* cur, char delim){
-        char word[10];
+        char word[100];
         int index = 0;
         while(str[*cur] != delim) {
             word[index] = str[*cur];
@@ -124,12 +155,14 @@ private:
         (*cur)++;
         return atof(word);
     }
+
 public:
     //消息类型，addnode, pull,push,stop,ok
     msg_type type;
     // 负责处理的数据下标起始结束位置
     int start;
     int end;
+    long timeStamp;
     // 参数的个数
     // 参数数组
     vector<vector<double>> data;
@@ -140,6 +173,7 @@ public:
             data.push_back(vector2);
         }
     }
+
     void initData(int len, int value) {
         data.reserve(len);
         for(int i =0; i< len; i++) {
@@ -149,11 +183,16 @@ public:
         }
     }
 
+//    void setData(vector<vector<double>> d) {
+//
+//    }
+
     void addData(int start, int end, vector<vector<double>> d) {
         for(int i = start; i < end; i++) {
             data[i-this->start] = d[i - start];
         }
     }
+
     string head() {
         StringBuilder<char> sb = StringBuilder<char>();
         sb.Append(to_string(type));
@@ -161,11 +200,12 @@ public:
         sb.Append(to_string(start));
         sb.Append(",");
         sb.Append(to_string(end));
+        sb.Append(",");
+        sb.Append(to_string(timeStamp));
         sb.Append(";");
         string str = sb.toString();
         return sb.toString();
     }
-
 
     string toString() {
         StringBuilder<char> sb = StringBuilder<char>();
@@ -174,6 +214,8 @@ public:
         sb.Append(to_string(start));
         sb.Append(",");
         sb.Append(to_string(end));
+        sb.Append(",");
+        sb.Append(to_string(timeStamp));
         sb.Append(";");
         int first = data.size();
         if(first > 0) {
@@ -204,6 +246,8 @@ public:
         sb.Append(to_string(start));
         sb.Append(",");
         sb.Append(to_string(end));
+        sb.Append(",");
+        sb.Append(to_string(timeStamp));
         sb.Append(";");
         int first = data.size();
 //        log("tostring first"+ to_string(first),file);
@@ -233,6 +277,9 @@ public:
     }
 
     Data(string str) {
+        if(str.size() == 0) {
+            return;
+        }
         while(str[str.size() - 1] != ';') {
             str = str.substr(0, str.size() - 1);
         }
@@ -240,7 +287,8 @@ public:
         int one = getInt(str, &cur, ',');
         type = msg_type(one);
         start = getInt(str, &cur, ',');
-        end = getInt(str, &cur, ';');
+        end = getInt(str, &cur, ',');
+        timeStamp = getLong(str, &cur, ';');
         if(cur >= str.size()) {
             return;
         }
@@ -264,6 +312,10 @@ public:
     }
 
     Data(char* str) {
+        if(strlen(str) == 0) {
+            this->type = UNKNOWN;
+            return;
+        }
         while(str[strlen(str) - 1] != ';') {
             str[strlen(str) - 1] = '\0';
         }
@@ -272,7 +324,8 @@ public:
         int one = getInt(str, &cur, ',');
         type = msg_type(one);
         start = getInt(str, &cur, ',');
-        end = getInt(str, &cur, ';');
+        end = getInt(str, &cur, ',');
+        timeStamp = getLong(str, &cur, ';');
         if(cur >= len) {
             return;
         }
@@ -294,23 +347,28 @@ public:
         }
     }
 
-    Data(char* str,string file) {
+    Data(char* str,string file, int mainId) {
+        if(strlen(str) == 0) {
+            return;
+        }
         while(str[strlen(str) - 1] != ';') {
             str[strlen(str) - 1] = '\0';
         }
         int len = strlen(str);
         int cur = 0;
-        log("test data parse param1", file);
+        log("test data parse param1", file, mainId);
         int one = getInt(str, &cur, ',');
-        log("test data parse param2", file);
+        log("test data parse param2", file, mainId);
         type = msg_type(one);
         start = getInt(str, &cur, ',');
-        log("test data parse param3", file);
-        end = getInt(str, &cur, ';');
-        log("test data parse param4", file);
+        log("test data parse param3", file, mainId);
+        end = getInt(str, &cur, ',');
+        timeStamp = getLong(str, &cur, ';');
+        log("test data parse param4", file, mainId);
         if(cur >= len) {
             return;
         }
+        log("test data parse param5", file, mainId);
         int second = 1;
         int k = cur;
         while(str[k] != ';') {
@@ -319,10 +377,10 @@ public:
             }
             k++;
         }
-        log("test data parse param5", file);
+        log("test data parse param5", file, mainId);
         while(cur < len) {
-            log("cur = " + to_string(cur), file);
-            log("len = " + to_string(len), file);
+            log("cur = " + to_string(cur), file, mainId);
+            log("len = " + to_string(len), file, mainId);
             vector<double> vector2;
             for(int i = 0; i< second - 1; i++) {
                 vector2.push_back(getDouble(str, &cur, ','));
@@ -346,7 +404,8 @@ public:
         start = getInt(str, &cur, ',');
 //        log("start = " + to_string(start), file);
 //        log("cur = " + to_string(cur), file);
-        end = getInt(str, &cur, ';');
+        end = getInt(str, &cur, ',');
+        timeStamp = getLong(str, &cur, ';');
 //        log("end = " + to_string(end), file);
 //        log("cur = " + to_string(cur), file);
         if(cur >= len) {
@@ -369,5 +428,24 @@ public:
             first++;
         }
     }
+};
+
+class LinkMsg {
+public:
+    unordered_map<int,void*>* sockets;
+    vector<Data*>* msgList;
+    vector<int>*  msgArray;
+    void* socket;
+    string file;
+    LinkMsg() {
+
+    }
+    LinkMsg(LinkMsg* linkMsg) {
+        this->sockets = linkMsg->sockets;
+        this->msgList = linkMsg->msgList;
+        this->msgArray = linkMsg->msgArray;
+//        this->socket = linkMsg->socket;
+        this->file = linkMsg->file;
+    };
 };
 #endif //PS_MESSAGE_H
