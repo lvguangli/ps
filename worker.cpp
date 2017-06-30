@@ -56,18 +56,14 @@ int getSocketIndex(void* socket, unordered_map<int,void*> sockets) {
     return index;
 }
 
-
 void* send(void* socket) {
     int index = getSocketIndex(socket, sendSockets);
     log("send", file+"send", index);
-    int s = -1;
-    log("send s init="+ to_string(s), file+"send", index);
     while(true) {
         if(sendIter > ITERATOR) {
             log("sendIter > ITERATOR",file+"send", index);
             break;
         }
-//        if(sendIter >= 0 && sendIter > s && sendMsgList[index].size() > sendIter &&sendMsgList[index][sendIter].timeStamp > 0) {
         if(sendMsgList[index].size() > 0) {
             Data msg = sendMsgList[index][0];
             string str = msg.toString();
@@ -105,8 +101,6 @@ void* send(void* socket) {
                 log("send receive wrong msg", file+"send", index);
                 continue;
             } else {
-                s = sendIter;
-                log("send reveive msg match so set 1 to index " + to_string(index) + "s=" + to_string(s), file+"send", index);
                 //已确认发送成功的消息被重置timeStamp，只保留head
                 sendMsgList[index].pop_back();
                 if(sendIter >= ITERATOR) {
@@ -203,9 +197,6 @@ void waitSendQueue(int len) {
         }
     }
 }
-
-
-
 
 void getDataWithWorkerNum(Node* node, int index) {
     log("getDataWithWorkerNum",file, mainId);

@@ -58,73 +58,14 @@ int getSocketIndex(void* socket, unordered_map<int,void*> sockets) {
     return index;
 }
 
-
-//void* send(void* socket) {
-//    int index = getSocketIndex(socket, sendSockets);
-//    log("send to worker" + to_string(index) + " sendIter=" + to_string(sendIter),file, index);
-//    while(true) {
-//        if(sendIter >= ITERATOR) {
-//            break;
-//        }
-//        if(sendMsgList[index].size() > 0 &&sendMsgList[index][sendMsgList[index].size() - 1].timeStamp > 0) {
-//            Data msg = sendMsgList[index][sendMsgList[index].size() - 1];
-//            string str = msg.toString();
-//            log("send to worker" + to_string(index) + " sendIter=" + to_string(sendIter) + " str=" + str,file, index);
-//            int maxTry = 3;
-//            while(zmq_send(socket, str.c_str(), str.size(), 0) < 0) {
-//                log("send zmq_send < 0; try again",file, index);
-//                maxTry--;
-//                if(maxTry < 0) {
-//                    break;
-//                }
-//            }
-//            if(maxTry < 0) {
-//                continue;
-//            }
-//            maxTry = 3;
-//            char tmp[OKMSGLEN];
-//            int len = zmq_recv(socket, tmp, OKMSGLEN, 0);
-//            while(len < 0) {
-//                log("send zmq_recv < 0",file, index);
-//                maxTry--;
-//                if(maxTry < 0) {
-//                    break;
-//                }
-//                len = zmq_recv(socket, tmp, OKMSGLEN, 0);
-//            }
-//            if(maxTry < 0) {
-//                continue;
-//            }
-//            tmp[len] = '\0';
-//            log("send receive from " + to_string(index) + " msg.size = " + to_string(strlen(tmp)) , file, index);
-//            log(tmp, file, index);
-//            Data respon = Data(tmp);
-//            if(respon.type != OK || respon.timeStamp != msg.timeStamp) {
-//                log("receive wrong msg", file, index);
-//                continue;
-//            } else {
-//                log("send receive msg match so set 1 to index " + to_string(index), file, index);
-//                //已确认发送成功的消息被重置timeStamp，只保留head
-//                sendMsgList[index][sendMsgList[index].size() - 1].data = vector<vector<double>>();
-//                sendMsgList[index][sendMsgList[index].size() - 1].timeStamp = 0;
-//            }
-//        }
-//        sleep(1);
-//    }
-//    return NULL;
-//}
-
 void* send(void* socket) {
     int index = getSocketIndex(socket, sendSockets);
     log("send", file+"send", index);
-    int s = -1;
-    log("send s init="+ to_string(s), file+"send", index);
     while(true) {
         if(sendIter > ITERATOR) {
             log("sendIter > ITERATOR",file+"send", index);
             break;
         }
-//        if(sendIter >= 0 && sendIter > s && sendMsgList[index].size() > sendIter &&sendMsgList[index][sendIter].timeStamp > 0) {
         if(sendMsgList[index].size() > 0) {
             Data msg = sendMsgList[index][0];
             string str = msg.toString();
@@ -162,8 +103,6 @@ void* send(void* socket) {
                 log("send receive wrong msg", file+"send", index);
                 continue;
             } else {
-                s = sendIter;
-                log("send reveive msg match so set 1 to index " + to_string(index) + "s=" + to_string(s), file+"send", index);
                 //已确认发送成功的消息被重置timeStamp，只保留head
                 sendMsgList[index].pop_back();
                 if(sendIter >= ITERATOR) {
