@@ -67,9 +67,9 @@ void* send(void* socket) {
             log("sendIter > ITERATOR",file+"send", index);
             break;
         }
-        if(sendIter >= 0 && sendIter > s && sendMsgList[index].size() > sendIter &&sendMsgList[index][sendIter].timeStamp > 0) {
-
-            Data msg = sendMsgList[index][sendIter];
+//        if(sendIter >= 0 && sendIter > s && sendMsgList[index].size() > sendIter &&sendMsgList[index][sendIter].timeStamp > 0) {
+        if(sendMsgList[index].size() > 0) {
+            Data msg = sendMsgList[index][0];
             string str = msg.toString();
             log("send to worker" + to_string(index) + " sendIter=" + to_string(sendIter) + " str=" + str,file+"send", index);
             int maxTry = 3;
@@ -108,8 +108,7 @@ void* send(void* socket) {
                 s = sendIter;
                 log("send reveive msg match so set 1 to index " + to_string(index) + "s=" + to_string(s), file+"send", index);
                 //已确认发送成功的消息被重置timeStamp，只保留head
-                sendMsgList[index][sendIter].data = vector<vector<double>>();
-                sendMsgList[index][sendIter].timeStamp = 0;
+                sendMsgList[index].pop_back();
                 if(sendIter >= ITERATOR) {
                     log("sendIter >= ITERATOR",file+"send", index);
                     break;
@@ -144,7 +143,7 @@ void* receive(void* socket) {
         log(tmp, file, index);
         Data msg = Data(tmp);
         log("msg->" + msg.toString(),file, index);
-        if(receiveMsgList[index].size() > 0 && msg.timeStamp == receiveMsgList[index][receiveMsgList[index].size() - 1].timeStamp) {
+        if(receiveMsgList[index].size() > 0 && msg.timeStamp == receiveMsgList[index][0].timeStamp) {
             log("receive msg has receive ,just resopnse ok", file+"receive" ,index);
         } else {
             receiveMsgList[index].push_back(msg);
@@ -166,6 +165,47 @@ void* receive(void* socket) {
     }
     return NULL;
 }
+
+void waitReceiveQueue(int len) {
+    log("waitReceiveQueue", file, mainId);
+    while(true) {
+        int count = 0;
+        for(int i=0; i < len; i++) {
+            if(receiveMsgList[i].size() > 0) {
+                count++;
+            }
+        }
+        log("waitReceiveQueue count=" + to_string(count), file, mainId);
+        if(count < len) {
+            sleep(1);
+        } else {
+            break;
+        }
+    }
+}
+
+void waitSendQueue(int len) {
+    log("waitSendQueue", file, mainId);
+    log("waitSendQueue len=" + to_string(len), file, mainId);
+    while(true) {
+        int count = 0;
+        for(int i=0; i < len; i++) {
+            log("waitSendQueue i=" + to_string(i), file, mainId);
+            if(sendMsgList[i].size() == 0) {
+                count++;
+            }
+        }
+        log("waitSendQueue count=" + to_string(count), file, mainId);
+        if(count < len) {
+            sleep(1);
+        } else {
+            break;
+        }
+    }
+}
+
+
+
 
 void getDataWithWorkerNum(Node* node, int index) {
     log("getDataWithWorkerNum",file, mainId);
@@ -245,44 +285,6 @@ void initSockets(void* args) {
 
 }
 
-void waitReceiveQueue(int len) {
-    log("waitReceiveQueue", file, mainId);
-    while(true) {
-        int count = 0;
-        for(int i=0; i < len; i++) {
-            if(receiveMsgList[i].size() > receiveIter) {
-                count++;
-            }
-        }
-        log("waitReceiveQueue count=" + to_string(count), file, mainId);
-        if(count < len) {
-            sleep(1);
-        } else {
-            break;
-        }
-    }
-}
-
-void waitSendQueue(int len) {
-    log("waitSendQueue", file, mainId);
-    log("waitSendQueue len=" + to_string(len), file, mainId);
-    while(true) {
-        int count = 0;
-        for(int i=0; i < len; i++) {
-            log("waitSendQueue i=" + to_string(i), file, mainId);
-            if(sendMsgList[i][sendIter].timeStamp == 0) {
-                count++;
-            }
-        }
-        log("waitSendQueue count=" + to_string(count), file, mainId);
-        if(count < len) {
-            sleep(1);
-        } else {
-            break;
-        }
-    }
-}
-
 void tryPULL(void* args) {
     log("tryPULL",file, mainId);
     Node* node =(Node*)args;
@@ -313,20 +315,19 @@ void tryPULL(void* args) {
     log("tryPULL waitReceiveQueue finished",file, mainId);
     for(int i = 0; i < len; i++) {
         log("i=" + to_string(i), file, mainId);
-        if (receiveMsgList[i][receiveIter].type != PULL) {
-            log("receive pull error" + receiveMsgList[i][receiveIter].head(), file, mainId);
+        if (receiveMsgList[i][0].type != PULL) {
+            log("receive pull error" + receiveMsgList[i][0].head(), file, mainId);
             exit(1);
         }
-        log("tryPULL msg=" + receiveMsgList[i][receiveIter].toString(),file, mainId);
-        if(receiveMsgList[i][receiveIter].start != -1) {
-            data->addData(receiveMsgList[i][receiveIter].start, receiveMsgList[i][receiveIter].end, receiveMsgList[i][receiveIter].data);
+        log("tryPULL msg=" + receiveMsgList[i][0].toString(),file, mainId);
+        if(receiveMsgList[i][0].start != -1) {
+            data->addData(receiveMsgList[i][0].start, receiveMsgList[i][0].end, receiveMsgList[i][0].data);
         }
 
     }
     log("pulldata from server finish",file, mainId);
     for(int i = 0; i < len; i++) {
-        receiveMsgList[i][receiveIter].data = vector<vector<double>>();
-        receiveMsgList[i][receiveIter].timeStamp = 0;
+        receiveMsgList[i].pop_back();
     }
     receiveIter++;
 }
@@ -347,16 +348,18 @@ void tryPUSH(void* args) {
     waitSendQueue(len);
     waitReceiveQueue(len);
     for(int i = 0; i < len; i++) {
-        if (receiveMsgList[i][receiveIter].type != PUSH) {
-            log("receive push error=" + receiveMsgList[i][receiveIter].head(), file, mainId);
+        if (receiveMsgList[i][0].type != PUSH) {
+            log("receive push error=" + receiveMsgList[i][0].head(), file, mainId);
             exit(1);
         }
-        if(receiveMsgList[i][receiveIter].start != -1) {
-            weight->addData(receiveMsgList[i][receiveIter].start, receiveMsgList[i][receiveIter].end, receiveMsgList[i][receiveIter].data);
+        if(receiveMsgList[i][0].start != -1) {
+            weight->addData(receiveMsgList[i][0].start, receiveMsgList[i][0].end, receiveMsgList[i][0].data);
 //            log("server "+ to_string(i) + " has pulled right data", file);
         }
-        receiveMsgList[i][receiveIter].data = vector<vector<double>>();
-        receiveMsgList[i][receiveIter].timeStamp = 0;
+    }
+    log("pushdata from server finish",file, mainId);
+    for(int i = 0; i < len; i++) {
+        receiveMsgList[i].pop_back();
     }
     receiveIter++;
 }
