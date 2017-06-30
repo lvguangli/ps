@@ -74,8 +74,9 @@ void generateNodeShell(Node *node, string args) {
         cmd = cmd + "./server " + node->toString();
     } else if(node->name[0] == 'w') {
         cmd = cmd + "./worker " + node->toString();
-    }
-    else if(node->name[0] == 's'&& node->name[1] == 'c') {
+    } else if(node->name[0] == 'n') {
+        cmd = cmd + "./newWorker " + node->toString();
+    } else if(node->name[0] == 's'&& node->name[1] == 'c') {
         cmd = cmd + "./scheduler " + node->toString();
     }
     cmd = cmd  + " " + args + " &";

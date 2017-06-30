@@ -1,4 +1,7 @@
 //
+// Created by Sahara on 30/06/2017.
+//
+//
 // Created by Sahara on 27/06/2017.
 //
 
@@ -27,7 +30,7 @@ Data* weight;
 
 Data* data;
 
-int hasItered = 0;
+int hasItered = -1;
 
 unordered_map<int,void*> receiveSockets;
 vector<Data> receiveMsgList[3];
@@ -40,8 +43,6 @@ int sendIter = -1;
 void* schedulerRepSocket;
 Data* pullMsg;
 
-
-bool isAddNode = false;
 int mainId = 6;
 
 int getSocketIndex(void* socket, unordered_map<int,void*> sockets) {
@@ -367,116 +368,21 @@ void tryPUSH(void* args) {
     receiveIter++;
 }
 
-void reInitLocalData(void* args) {
-    log("reInitLocalData",file, mainId);
-    Node* node =(Node*)args;
-    getDataWithWorkerNum(node, node->id, &error, 1);
-    //data 可以复用本地数据
-    Data *msg = data;
-    getDataWithWorkerNum(node, node->id, &data, -1);
-    pullMsg->start = data->start;
-    pullMsg->end = data->end;
-    if(msg->start < data->end && msg->start >= data->start) {
-        pullMsg->end = msg->start;
-        int len = data->end - msg->start;
-        int start = msg->start - data->start;
-        for(int i = 0; i <len; i++) {
-            data->data[i + start] = msg->data[i];
-        }
-    }
-    if(pullMsg->start == pullMsg->end) {
-        pullMsg->start = -1;
-        pullMsg->end = -1;
-    }
-}
-
-void* responseScheduler(void* args, int value) {
+void* repScheduler(void* args) {
     log("sendMsgScheduler",file, mainId);
     Node* node =(Node*)args;
     Data msg = Data();
     msg.type = OK;
-    if(value > 0) {
-        msg.start = 0;
-        msg.end = 1;
-        msg.timeStamp = getCurrentTime();
-        msg.data = vector<vector<double>>();
-        vector<double> tmp;
-        double v = hasItered;
-        tmp.push_back(v);
-        msg.data.push_back(tmp);
-    } else {
-        msg.start = -1;
-        msg.end = -1;
-        msg.timeStamp = getCurrentTime();
-    }
-    string str = msg.toString();
+    msg.start = -1;
+    msg.end = -1;
+    msg.timeStamp = getCurrentTime();
+    string str = msg.head();
     int len = zmq_send(schedulerRepSocket, str.c_str(), str.size(), 0);
     while(len < 0) {
         len = zmq_send(schedulerRepSocket, str.c_str(), str.size(), 0);
     }
-    log("sendMsgScheduler send to schedulerRepSocket len=" + to_string(len),file, mainId);
+    log("newWorker sendMsgScheduler send to schedulerRepSocket len=" + to_string(len),file, mainId);
     return NULL;
-}
-
-void* repScheduler(void* args) {
-    responseScheduler(args, hasItered);
-    return NULL;
-}
-void* workerListenScheduler(void* args) {
-    log("listenScheduler",file, mainId);
-    Node* node =(Node*)args;
-    string ip = node->getTCP() + to_string(node->scheduler->id);
-    log("worker bind to ip = " + ip, file, mainId);
-    schedulerRepSocket = repListener(ip);
-    char tmp[OKMSGLEN];
-    int len = zmq_recv(schedulerRepSocket, tmp, OKMSGLEN, 0);
-    while(len < 0) {
-        len = zmq_recv(schedulerRepSocket, tmp, OKMSGLEN, 0);
-        sleep(1);
-    }
-    tmp[len] = '\0';
-    log("receive msg from scheduler size =  " + to_string(len),file, mainId);
-    log(tmp, file, mainId);
-    Data msg = Data(tmp);
-    if(msg.type == ADDNODE) {
-        isAddNode = true;
-    }
-    log("receive msg from scheduler finished",file, mainId);
-    return NULL;
-}
-
-void* checkScheduler(void* args) {
-    log("checkScheduler",file, mainId);
-    Node* node =(Node*)args;
-    char tmp[OKMSGLEN];
-    int len = zmq_recv(schedulerRepSocket, tmp, OKMSGLEN, 0);
-    while(len < 0) {
-        len = zmq_recv(schedulerRepSocket, tmp, OKMSGLEN, 0);
-        sleep(1);
-    }
-    tmp[len] = '\0';
-    log("checkScheduler receive msg from scheduler size =  " + to_string(len),file, mainId);
-    log(tmp, file, mainId);
-    Data msg = Data(tmp);
-    if(msg.type != RESTART) {
-        exit(0);
-    }
-    responseScheduler(args, -1);
-    log("checkScheduler receive msg from scheduler finished",file, mainId);
-    return NULL;
-}
-
-void dealWithScheduler(void* args) {
-    Node* node =(Node*)args;
-    node->workerNum += 1;
-    reInitLocalData(args);
-    isAddNode = false;
-    pthread_t resid;
-    pthread_create(&resid, NULL, repScheduler, args);
-    pthread_t checkid;
-    pthread_create(&checkid, NULL, checkScheduler, args);
-    pthread_join(checkid, NULL);
-    tryPULL(args);
 }
 
 void* interactWithServer(void* args) {
@@ -490,14 +396,37 @@ void* interactWithServer(void* args) {
         if(hasItered >= ITERATOR) {
             break;
         }
-//        // 用来测试添加节点消息
-//        while(hasItered == ITERATOR/2 && !isAddNode) {
-//            sleep(2);
-//        }
-        if(isAddNode) {
-            dealWithScheduler(args);
-        }
     }
+    return NULL;
+}
+
+void* workerListenScheduler(void* args) {
+    log("listenScheduler",file, mainId);
+    Node* node =(Node*)args;
+    string ip = node->getTCP() + to_string(node->scheduler->id);
+    log("worker bind to ip = " + ip, file, mainId);
+    schedulerRepSocket = repListener(ip);
+    char tmp[OKMSGLEN];
+    int len = zmq_recv(schedulerRepSocket, tmp, OKMSGLEN, 0);
+    while(len < 0) {
+        len = zmq_recv(schedulerRepSocket, tmp, OKMSGLEN, 0);
+        sleep(1);
+    }
+    tmp[len] = '\0';
+    log(tmp, file, mainId);
+    Data msg = Data(tmp);
+    log("receive msg from scheduler size =  " + to_string(len) + " msg=" + msg.toString(),file, mainId);
+    if(msg.type == ITERMSG) {
+        hasItered = (int) msg.data[0][0];
+    } else if(msg.type == STOP) {
+        exit(0);
+    }
+    log("receive msg from scheduler finished",file, mainId);
+    pthread_t schid;
+    pthread_create(&schid, NULL, repScheduler, args);
+    pthread_t wid;
+    pthread_create(&schid, NULL, interactWithServer, args);
+    pthread_join(wid, NULL);
     return NULL;
 }
 
@@ -520,7 +449,7 @@ void* start_worker(void* args) {
         ids.push_back(sid);
     }
     pthread_t mid;
-    pthread_create(&mid, NULL, interactWithServer, args);
+    pthread_create(&mid, NULL, workerListenScheduler, args);
     ids.push_back(mid);
     for(int i = 0; i < ids.size(); i++) {
         pthread_join(ids[i], NULL);

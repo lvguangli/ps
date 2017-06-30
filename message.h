@@ -16,10 +16,12 @@ enum msg_type {
     UNKNOWN, //未知消息
     OK, // 消息接受
     ADDNODE, // 添加节点
-    PUSH,   // worker节点push计算完成后的参数
-    PULL,   // worker节点pull源数据数据
+    PUSH,    // worker节点push计算完成后的参数
+    PULL,    // worker节点pull源数据数据
     STOP,    // 调度器终止计算
-    ERROR   // 接受错误
+    ERROR,   // 接受错误
+    ITERMSG, // 更新iterator
+    RESTART    // 调度器通知节点从断点继续执行任务
 };
 
 //class Error {
@@ -347,7 +349,7 @@ public:
             k++;
         }
         int count = 0;
-        int num = this->end - this->start;
+        int num = end - start;
         if(count >= num) {
             return;
         }

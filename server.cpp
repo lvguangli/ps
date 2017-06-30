@@ -13,11 +13,6 @@
 #include "log.h"
 #include "constant.h"
 #include <unistd.h>
-#include<iostream>
-#include<istream>
-#include <stdlib.h>
-#include <ctime>
-#include <time.h>
 
 using namespace std;
 double alpha = 0.01;
@@ -38,6 +33,8 @@ int receiveIter = 0;
 unordered_map<int,void*> sendSockets;
 vector<Data> sendMsgList[3];
 int sendIter = -1;
+
+void* schedulerRepSocket;
 
 
 bool isAddNode = false;
@@ -286,20 +283,18 @@ void initSockets(void* args) {
 }
 
 void addSocket(void* args) {
-//    log("addSocket",file, mainId);
-//    Node* node =(Node*)args;
-//    int workerId = node->workerNum - 1;
-//    string ip = node->getTCP() + to_string(workerId);
-//    log("server bind to ip = " + ip, file, mainId);
-//    void* receiveSocket = repListener(ip);
-//    (*receiveSockets)[workerId] = receiveSocket;
-//
-//    ip = node->linksIP[workerId] + to_string(node->id);
-//    log("server connect to ip = " + ip, file, mainId);
-//    void* sendSocket = reqListener(ip);
-//    (*sendSockets)[workerId] = sendSocket;
-//    receiveMsgArray->push_back(0);
-//    sendMsgArray->push_back(0);
+    log("addSocket",file, mainId);
+    Node* node =(Node*)args;
+    int workerId = node->workerNum - 1;
+    string ip = node->getTCP() + to_string(workerId);
+    log("server bind to ip = " + ip, file, mainId);
+    void* receiveSocket = repListener(ip);
+    receiveSockets[workerId] = receiveSocket;
+
+    ip = node->linksIP[workerId] + to_string(node->id);
+    log("server connect to ip = " + ip, file, mainId);
+    void* sendSocket = reqListener(ip);
+    sendSockets[workerId] = sendSocket;
 }
 
 /**
@@ -391,14 +386,18 @@ void handlePUSH(void* args) {
         Node* node =(Node*)args;
     int len =  node->workerNum;
     waitReceiveQueue(len);
+    log("handlePUSH waitReceiveQueue finish", file, mainId);
     for(int i = 0; i < len; i++) {
         if(receiveMsgList[i][0].type != PUSH) {
             log("receive push error", file, mainId);
             exit(1);
         }
         Data msg = receiveMsgList[i][0];
+        log("handlePUSH msg=" + msg.toString(),file, mainId);
+        log("handlePUSH error=" + error->head(),file, mainId);
         error->addData(msg.start, msg.end, msg.data);
     }
+    log("handlePUSH set error finish", file, mainId);
     for(int i = 0; i < len; i++) {
         receiveMsgList[i].pop_back();
     }
@@ -413,10 +412,104 @@ void handlePUSH(void* args) {
     waitSendQueue(len);
 }
 
+void* responseScheduler(void* args, int value) {
+    log("sendMsgScheduler",file, mainId);
+    Node* node =(Node*)args;
+    Data msg = Data();
+    msg.type = OK;
+    if(value > 0) {
+        msg.start = 0;
+        msg.end = 1;
+        msg.timeStamp = getCurrentTime();
+        msg.data = vector<vector<double>>();
+        vector<double> tmp;
+        double v = hasItered;
+        tmp.push_back(v);
+        msg.data.push_back(tmp);
+    } else {
+        msg.start = -1;
+        msg.end = -1;
+        msg.timeStamp = getCurrentTime();
+    }
+    string str = msg.toString();
+    int len = zmq_send(schedulerRepSocket, str.c_str(), str.size(), 0);
+    while(len < 0) {
+        len = zmq_send(schedulerRepSocket, str.c_str(), str.size(), 0);
+    }
+    log("sendMsgScheduler send to schedulerRepSocket len=" + to_string(len),file, mainId);
+    return NULL;
+}
+
+void* repScheduler(void* args) {
+    responseScheduler(args, hasItered);
+    return NULL;
+}
+
+
+void* serverListenScheduler(void* args) {
+    log("listenScheduler",file, mainId);
+//    return NULL;
+    Node* node =(Node*)args;
+    string ip = node->scheduler->getTCP() + to_string(node->id);
+    log("server connect to ip = " + ip, file, mainId);
+    schedulerRepSocket = repListener(ip);
+    char tmp[OKMSGLEN];
+    int len = zmq_recv(schedulerRepSocket, tmp, OKMSGLEN, 0);
+    while(len < 0) {
+        len = zmq_recv(schedulerRepSocket, tmp, OKMSGLEN, 0);
+        sleep(1);
+    }
+    log("receive msg from scheduler size =  " + to_string(strlen(tmp)),file, mainId);
+    log(tmp, file, mainId);
+    Data msg = Data(tmp);
+    if(msg.type == ADDNODE) {
+        int workerId = (int) msg.data[0][0];
+        node->addLinks("tcp://" + whosts[workerId][0] + ":" + whosts[workerId][1]);
+        isAddNode = true;
+    }
+    return NULL;
+}
+
+void* checkScheduler(void* args) {
+    log("checkScheduler",file, mainId);
+    Node* node =(Node*)args;
+    char tmp[OKMSGLEN];
+    int len = zmq_recv(schedulerRepSocket, tmp, OKMSGLEN, 0);
+    while(len < 0) {
+        len = zmq_recv(schedulerRepSocket, tmp, OKMSGLEN, 0);
+        sleep(1);
+    }
+    tmp[len] = '\0';
+    log("checkScheduler receive msg from scheduler size =  " + to_string(len),file, mainId);
+    log(tmp, file, mainId);
+    Data msg = Data(tmp);
+    if(msg.type != RESTART) {
+        exit(0);
+    }
+    responseScheduler(args, -1);
+    log("checkScheduler receive msg from scheduler finished",file, mainId);
+    return NULL;
+}
+
+void dealWithScheduler(void* args) {
+    Node* node =(Node*)args;
+    isAddNode = false;
+    addSocket(args);
+    //TODO 起线程send receive
+    pthread_t rid;
+    pthread_create(&rid, NULL, receive, receiveSockets[node->workerNum - 1]);
+    pthread_t sid;
+    pthread_create(&sid, NULL, send, sendSockets[node->workerNum - 1]);
+    pthread_t schid;
+    pthread_create(&schid, NULL, repScheduler, args);
+    pthread_t checkid;
+    pthread_create(&checkid, NULL, checkScheduler, args);
+    pthread_join(checkid, NULL);
+    handlePULL(args);
+}
 
 void* interactWithWorker(void* args) {
     log("interactWithWorker",file, mainId);
-//    Node* node =(Node*)args;
     handlePULL(args);
     for(int k = 0; k < ITERATOR * 2; k++) {
         handlePUSH(args);
@@ -430,42 +523,12 @@ void* interactWithWorker(void* args) {
 //            sleep(2);
 //        }
         if(isAddNode) {
-            addSocket(args);
-            isAddNode = false;
-            handlePULL(args);
+            dealWithScheduler(args);
         }
     }
     return NULL;
 }
 
-void* listenScheduler(void* args) {
-    log("listenScheduler",file, mainId);
-//    return NULL;
-    Node* node =(Node*)args;
-    string ip = node->getTCP() + to_string(node->scheduler->id);
-    log("server bind to ip = " + ip, file, mainId);
-    void* receiveSocket = repListener(ip);
-
-    ip = node->scheduler->getTCP() + to_string(node->id);
-    log("server connect to ip = " + ip, file, mainId);
-    void* sendSocket = reqListener(ip);
-
-    void* socket = repListener(ip);
-    int MAXLEN = 500 * (8 + 1);
-    char tmp[500 * (sizeof(double) + 1)];
-    zmq_recv(socket, tmp, MAXLEN, 0);
-    log("receive msg from scheduler size =  " + to_string(strlen(tmp)),file, mainId);
-    log(tmp, file, mainId);
-    Data msg = Data(tmp);
-    if(msg.type == ADDNODE) {
-        node->workerNum += 1;
-        node->addLinks("tcp://" + whosts[msg.end][0] + ":" + whosts[msg.end][1]);
-        isAddNode = true;
-    } else if(msg.type == STOP) {
-        exit(0);
-    }
-    return NULL;
-}
 
 
 /**
@@ -476,6 +539,9 @@ void* listenScheduler(void* args) {
 void* start_server(void* args) {
     log("start_server",file, mainId);
     Node* node =(Node*)args;
+    // start_server 起一个不需要等待的线程用来处理scheduler的消息
+    pthread_t lid;
+    pthread_create(&lid, NULL, serverListenScheduler, (void*)node);
     initLocalData(node);
     initTrainData("train.txt");
     initSockets(args);

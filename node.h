@@ -68,6 +68,9 @@ public:
         linksNum ++;
     }
     string getTCP() {
+        if(tcp.size() == 0) {
+            tcp = "tcp://" + host + ":" + port;
+        }
         return tcp;
     }
     string toString(){
