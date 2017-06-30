@@ -301,6 +301,11 @@ public:
             k++;
         }
         int len = str.size();
+        int count = 0;
+        int num = this->end - this->start;
+        if(count >= num) {
+            return;
+        }
         while(cur < len) {
             vector<double> vector2;
             for(int i = 0; i< second - 1; i++) {
@@ -308,6 +313,10 @@ public:
             }
             vector2.push_back(getDouble(str, &cur, ';'));
             data.push_back(vector2);
+            count++;
+            if(count >= num) {
+                break;
+            }
         }
     }
 
@@ -337,6 +346,11 @@ public:
             }
             k++;
         }
+        int count = 0;
+        int num = this->end - this->start;
+        if(count >= num) {
+            return;
+        }
         while(cur < len) {
             vector<double> vector2;
             for(int i = 0; i< second - 1; i++) {
@@ -344,6 +358,10 @@ public:
             }
             vector2.push_back(getDouble(str, &cur, ';'));
             data.push_back(vector2);
+            count++;
+            if(count >= num) {
+                break;
+            }
         }
     }
 
@@ -378,6 +396,11 @@ public:
             k++;
         }
         log("test data parse param5", file, mainId);
+        int count = 0;
+        int num = this->end - this->start;
+        if(count >= num) {
+            return;
+        }
         while(cur < len) {
             log("cur = " + to_string(cur), file, mainId);
             log("len = " + to_string(len), file, mainId);
@@ -387,6 +410,10 @@ public:
             }
             vector2.push_back(getDouble(str, &cur, ';'));
             data.push_back(vector2);
+            count++;
+            if(count >= num) {
+                break;
+            }
         }
     }
 
@@ -420,12 +447,21 @@ public:
             k++;
         }
         int first = 0;
+        int count = 0;
+        int num = this->end - this->start;
+        if(count >= num) {
+            return;
+        }
         while(cur < len) {
             for(int i = 0; i< second - 1; i++) {
                 data[first].push_back(getDouble(str, &cur, ','));
             }
             data[first].push_back(getDouble(str, &cur, ';'));
             first++;
+            count++;
+            if(count >= num) {
+                break;
+            }
         }
     }
 };
