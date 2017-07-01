@@ -31,7 +31,7 @@ void generateScript(char argv[3][10]) {
         string host = whosts[i - serverNum][0];
         string port = whosts[i - serverNum][1];
         string name = "worker" + to_string(i - serverNum);
-        if( i == 5) {
+        if( i == 4) {
             name = "newWorker" + to_string(i - serverNum);
         }
         Node* nodePtr = new Node(name, i- serverNum, host, port, serverNum, workerNum);

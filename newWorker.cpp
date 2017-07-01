@@ -20,7 +20,7 @@
 
 using namespace std;
 
-string file = "worker";
+string file = "newWorker";
 // 只计算自己worker分配的error部分 = N / workerN
 Data* error;
 // 保留全部权重特征，即需要向server拉取所有weight
@@ -34,11 +34,9 @@ int hasItered = -1;
 
 unordered_map<int,void*> receiveSockets;
 vector<Data> receiveMsgList[3];
-int receiveIter = 0;
 
 unordered_map<int,void*> sendSockets;
 vector<Data> sendMsgList[3];
-int sendIter = -1;
 
 void* schedulerRepSocket;
 Data* pullMsg;
@@ -64,30 +62,26 @@ void* send(void* socket) {
     int index = getSocketIndex(socket, sendSockets);
     log("send", file+"send", index);
     while(true) {
-        if(sendIter > ITERATOR) {
-            log("sendIter > ITERATOR",file+"send", index);
+        log("send hasItered = " + to_string(hasItered),file+"send", index);
+        if(hasItered >= ITERATOR) {
+            log("hasItered >= ITERATOR",file+"send", index);
             break;
         }
         if(sendMsgList[index].size() > 0) {
             Data msg = sendMsgList[index][0];
             string str = msg.toString();
-            log("send to worker" + to_string(index) + " sendIter=" + to_string(sendIter) + " str=" + str,file+"send", index);
-            int maxTry = 3;
-            while(zmq_send(socket, str.c_str(), str.size(), 0) < 0) {
+            log("send to worker" + to_string(index) + " str=" + str,file+"send", index);
+            if(zmq_send(socket, str.c_str(), str.size(), 0) < 0) {
                 log("send zmq_send < 0; try again",file+"send", index);
-                maxTry--;
-                if(maxTry < 0) {
-                    break;
-                }
-            }
-            if(maxTry < 0) {
+                sleep(1);
                 continue;
             }
-            maxTry = 3;
+            int maxTry = 5;
             char tmp[OKMSGLEN];
             int len = zmq_recv(socket, tmp, OKMSGLEN, 0);
             while(len < 0) {
                 log("send zmq_recv < 0",file+"send", index);
+                sleep(1);
                 maxTry--;
                 if(maxTry < 0) {
                     break;
@@ -105,15 +99,8 @@ void* send(void* socket) {
                 log("send receive wrong msg", file+"send", index);
                 continue;
             } else {
-                //已确认发送成功的消息被重置timeStamp，只保留head
                 sendMsgList[index].pop_back();
-                if(sendIter >= ITERATOR) {
-                    log("sendIter >= ITERATOR",file+"send", index);
-                    break;
-                }
             }
-        } else {
-            log("send has send data sendIter=" + to_string(sendIter), file+"send", index);
         }
         sleep(1);
     }
@@ -124,17 +111,17 @@ void* receive(void* socket) {
     int index = getSocketIndex(socket, receiveSockets);
     log("receive", file+"receive", index);
     while(true) {
-        if(receiveIter >= ITERATOR) {
-            log("receive receiveIter >= ITERATOR", file+"receive", index);
+        log("receive hasItered = " + to_string(hasItered), file+"receive", index);
+        if(hasItered >= ITERATOR - 1) {
+            log("receive hasItered >= ITERATOR", file+"receive", index);
             break;
         }
-        log("receive receiveIter = " + to_string(receiveIter), file+"receive", index);
         char tmp[M * N * sizeof(double) + M + 1];
         int len = zmq_recv(socket, tmp, M * N * sizeof(double) + M + 1, 0);
-        while(len < 0) {
+        if(len < 0) {
             log("receive zmq_recv < 0",file+"receive", index);
             sleep(1);
-            len = zmq_recv(socket, tmp, M * N * sizeof(double) + M + 1, 0);
+            continue;
         }
         tmp[len] = '\0';
         log("receive zmq_recv len=" + to_string(len), file+"receive", index);
@@ -152,7 +139,7 @@ void* receive(void* socket) {
         ok.start = -1;
         ok.end = -1;
         string str = ok.head();
-        int maxTry = 3;
+        int maxTry = 5;
         while(zmq_send(socket, str.c_str(), str.size(), 0) < 0) {
             log("receive zmq_send < 0; try again",file+"receive", index);
             maxTry--;
@@ -163,7 +150,6 @@ void* receive(void* socket) {
     }
     return NULL;
 }
-
 void waitReceiveQueue(int len) {
     log("waitReceiveQueue", file, mainId);
     while(true) {
@@ -260,6 +246,11 @@ void initLocalData(void* args) {
 void initSockets(void* args) {
     log("initSockets",file, mainId);
     Node* node =(Node*)args;
+
+    string ip = node->getTCP() + to_string(node->scheduler->id);
+    log("worker bind to ip = " + ip, file, mainId);
+    schedulerRepSocket = repListener(ip);
+
     for(int i = 0; i < node->serverNum; i++) {
         receiveMsgList[i] = vector<Data>();
         sendMsgList[i] = vector<Data>();
@@ -313,7 +304,6 @@ void tryPULL(void* args) {
         }
         sendMsgList[i].push_back(msg);
     }
-    sendIter++;
     waitSendQueue(len);
     waitReceiveQueue(len);
     log("tryPULL waitReceiveQueue finished",file, mainId);
@@ -333,7 +323,6 @@ void tryPULL(void* args) {
     for(int i = 0; i < len; i++) {
         receiveMsgList[i].pop_back();
     }
-    receiveIter++;
 }
 
 void tryPUSH(void* args) {
@@ -348,7 +337,6 @@ void tryPUSH(void* args) {
 //        log("tryPUSH error="+ error->toString(), file,mainId);
 //        log("tryPUSH msg="+ msg->toString(), file,mainId);
     }
-    sendIter++;
     waitSendQueue(len);
     waitReceiveQueue(len);
     for(int i = 0; i < len; i++) {
@@ -365,10 +353,9 @@ void tryPUSH(void* args) {
     for(int i = 0; i < len; i++) {
         receiveMsgList[i].pop_back();
     }
-    receiveIter++;
 }
 
-void* repScheduler(void* args) {
+void* responseScheduler(void* args) {
     log("sendMsgScheduler",file, mainId);
     Node* node =(Node*)args;
     Data msg = Data();
@@ -403,9 +390,6 @@ void* interactWithServer(void* args) {
 void* workerListenScheduler(void* args) {
     log("listenScheduler",file, mainId);
     Node* node =(Node*)args;
-    string ip = node->getTCP() + to_string(node->scheduler->id);
-    log("worker bind to ip = " + ip, file, mainId);
-    schedulerRepSocket = repListener(ip);
     char tmp[OKMSGLEN];
     int len = zmq_recv(schedulerRepSocket, tmp, OKMSGLEN, 0);
     while(len < 0) {
@@ -418,15 +402,14 @@ void* workerListenScheduler(void* args) {
     log("receive msg from scheduler size =  " + to_string(len) + " msg=" + msg.toString(),file, mainId);
     if(msg.type == ITERMSG) {
         hasItered = (int) msg.data[0][0];
+        responseScheduler(args);
     } else if(msg.type == STOP) {
         exit(0);
     }
     log("receive msg from scheduler finished",file, mainId);
     pthread_t schid;
-    pthread_create(&schid, NULL, repScheduler, args);
-    pthread_t wid;
     pthread_create(&schid, NULL, interactWithServer, args);
-    pthread_join(wid, NULL);
+    pthread_join(schid, NULL);
     return NULL;
 }
 
@@ -434,10 +417,10 @@ void* start_worker(void* args) {
     log("start_worker",file, mainId);
     Node* node =(Node*)args;
     // start_worker 起一个不需要等待的线程用来处理scheduler的消息
-    pthread_t lid;
-    pthread_create(&lid, NULL, workerListenScheduler, (void*)node);
     initLocalData(args);
     initSockets(args);
+    pthread_t lid;
+    pthread_create(&lid, NULL, workerListenScheduler, (void*)node);
     vector<pthread_t> ids;
     int len = node->serverNum;
     for(int i = 0; i < len; i++) {
@@ -448,9 +431,6 @@ void* start_worker(void* args) {
         pthread_create(&sid, NULL, send, sendSockets[i]);
         ids.push_back(sid);
     }
-    pthread_t mid;
-    pthread_create(&mid, NULL, workerListenScheduler, args);
-    ids.push_back(mid);
     for(int i = 0; i < ids.size(); i++) {
         pthread_join(ids[i], NULL);
     }

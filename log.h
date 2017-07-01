@@ -7,20 +7,21 @@
 #include<iostream>
 #include<fstream>
 using namespace std;
+string dir = "log/";
 void log(string file, int index){
-    ofstream out(file + to_string(index) + ".txt",ios::out);
+    ofstream out(dir + file + to_string(index) + ".txt",ios::out);
     out<<"";
     out.close();
 }
 void log(string content,string file, int index)
 {
-    ofstream out(file  + to_string(index) + ".txt",ios::app);
+    ofstream out(dir + file  + to_string(index) + ".txt",ios::app);
     out<<content<<endl;
     out.close();
 }
 void log(char* content, string file, int index)
 {
-    ofstream out(file  + to_string(index) + ".txt",ios::app);
+    ofstream out(dir + file  + to_string(index) + ".txt",ios::app);
     out<<content<<endl;
     out.close();
 }
