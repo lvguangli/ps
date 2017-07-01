@@ -232,7 +232,7 @@ void initTrainData(string train) {
         int index = 0;
         int cur = 0;
         while(line[cur]) {
-            if(line[cur] == ' ') {
+            if(line[cur] == ',') {
                 word[index] = '\0';
 //                log("init word " + to_string(atof(word)), file);
                 vector2.push_back(atof(word));
@@ -306,20 +306,19 @@ void addSocket(void* args) {
     sendSockets[workerId] = sendSocket;
 }
 
+float sigmoid(float x)
+{
+    return (1 / (1 + exp(-x)));
+}
 /**
  * 计算权重
  */
 void calc() {
     log("calc",file, mainId);
     int count = weight->end - weight->start;
-//    log("weight->start = " + to_string(weight->start), file);
     for(int i = 0; i < count; i++) {
-//        log("calc weight i " + to_string(i),file);
         double result = 0;
         for(int j = 0; j< M; j++) {
-//            log("calc weight j " + to_string(j),file);
-//            log("error->data[j][0] = " + to_string(error->data[j][0]), file);
-//            log("data->data[j][i + weight->start] = " + to_string(data->data[j][i + weight->start]), file);
             result += error->data[j][0] * data->data[j][i + weight->start];
         }
         weight->data[i][0] += result * alpha;

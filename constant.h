@@ -18,7 +18,7 @@ using namespace std;
 //static int ITERATOR = 50;
 static int M = 32;
 static int N = 410;
-static string trainFile = "train.txt";
+static string trainFile = "train.csv";
 static int ITERATOR = 10;
 
 static string shosts[][2] = {{"192.168.1.100","14535"}, {"192.168.1.100","14331"}};

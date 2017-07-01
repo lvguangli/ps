@@ -1,70 +1,93 @@
 import pandas as pd
+import csv
 
 
-def proc(file=None, type=None):
-    data = pd.read_csv(file)
+def pretreat(train_file=None, test_file=None, dir=''):
+    train = pd.read_csv(train_file)
+    test = pd.read_csv(test_file)
     col_name = list()
-    c_num = data.columns.shape[0]
+    c_num = train.columns.shape[0]
     for i in range(c_num):
         col_name.append(i)
-    data.columns = col_name
+    train.columns = col_name
+
+    col_name = list()
+    c_num = test.columns.shape[0]
+    for i in range(c_num):
+        col_name.append(i)
+    test.columns = col_name
+
+    data = pd.concat([train, test])
+
     label = data[41]
-    # del data[40]
     del data[41]
+    print(data.columns)
     print ("origin:"+str(data.columns.shape[0]))
-    print ("origin:"+str(data.index.shape[0]))
-    print (data.columns)
-    print (data.index)
     data = pd.get_dummies(data)
     print("get_dummies:"+str(data.columns.shape[0]))
     label = pd.get_dummies(label)
     ll = list()
     data_num = data.index.shape[0]
+    # count1 = 0
     for i in range(data_num):
         if label.iat[i, 0]:
             # iat = indexat
             ll.append(0)
         else:
             ll.append(1)
-    ll = pd.Series(ll)
-    train = data
-    label = ll
-    data[data.columns.shape[0]] = label[0]
+            # if i > data_num/3*2:
+            #     count1 += 1
+    # print "test count1="+str(count1)
+
     print(data.columns.shape[0])
     print(data.index.shape[0])
-    print(data.columns)
-    print(data.index)
-    data.to_csv("data/" + type + ".txt", index=False, header=False, sep=" ")
+    num = data.index.shape[0]
+    train = data[0:num/3*2]
+    print(train.columns.shape[0])
+    print(train.index.shape[0])
+    test = data[num/3*2:num]
+    print(test.columns.shape[0])
+    print(test.index.shape[0])
 
+    train.to_csv(dir+'tmp_train.txt', index=False, header=False, sep=",")
+    test.to_csv(dir+'tmp_test.txt', index=False, header=False, sep=",")
+
+    index = 0
+    label = ll
+
+    train_data = list()
+    with open(dir+'tmp_train.txt', 'r') as f:
+        temp = csv.reader(f)
+        for row in temp:
+            tmp = list()
+            for value in row:
+                tmp.append(value)
+            tmp.append(label[index])
+            index += 1
+            train_data.append(tmp)
+    with open(dir+'train.csv', 'w') as output:
+        writer = csv.writer(output)
+        for item in train_data:
+            writer.writerow(item)
+
+    print("index=" + str(index))
+
+    test_data = list()
+    with open(dir+'tmp_test.txt', 'r') as f:
+        temp = csv.reader(f)
+        for row in temp:
+            tmp = list()
+            for value in row:
+                tmp.append(value)
+            tmp.append(label[index])
+            index += 1
+            test_data.append(tmp)
+    with open(dir+'test.csv', 'w') as output:
+        writer = csv.writer(output)
+        for item in test_data:
+            writer.writerow(item)
+    print("index=" + str(index))
 
 if __name__ == '__main__':
-    proc("data/census-income.data", "train")
-    proc("data/census-income.test", "test")
-# print(train.index) =  RangeIndex(start=0, stop=199522, step=1)
-    # print(train.columns)
-    # Index([u'train.columns:73', u'train.columns: Not in universe',
-    #        u'train.columns: 0', u'train.columns: 0.1',
-    #        u'train.columns: High school graduate', u'train.columns: 0.2',
-    #        u'train.columns: Not in universe.1', u'train.columns: Widowed',
-    #        u'train.columns: Not in universe or children',
-    #        u'train.columns: Not in universe.2', u'train.columns: White',
-    #        u'train.columns: All other', u'train.columns: Female',
-    #        u'train.columns: Not in universe.3',
-    #        u'train.columns: Not in universe.4',
-    #        u'train.columns: Not in labor force', u'train.columns: 0.3',
-    #        u'train.columns: 0.4', u'train.columns: 0.5',
-    #        u'train.columns: Nonfiler', u'train.columns: Not in universe.5',
-    #        u'train.columns: Not in universe.6',
-    #        u'train.columns: Other Rel 18+ ever marr not in subfamily',
-    #        u'train.columns: Other relative of householder',
-    #        u'train.columns: 1700.09', u'train.columns: ?', u'train.columns: ?.1',
-    #        u'train.columns: ?.2',
-    #        u'train.columns: Not in universe under 1 year old',
-    #        u'train.columns: ?.3', u'train.columns: 0.6',
-    #        u'train.columns: Not in universe.7', u'train.columns: United-States',
-    #        u'train.columns: United-States.1', u'train.columns: United-States.2',
-    #        u'train.columns: Native- Born in the United States',
-    #        u'train.columns: 0.7', u'train.columns: Not in universe.8',
-    #        u'train.columns: 2', u'train.columns: 0.8', u'train.columns: 95',
-    #        u'train.columns: - 50000.'],
-    #       dtype='object')
+    pretreat('census-income.data', 'census-income.test', 'data/')
+

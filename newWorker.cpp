@@ -32,6 +32,8 @@ Data* data;
 
 int hasItered = -1;
 
+bool isAlreadyProcess = false;
+
 unordered_map<int,void*> receiveSockets;
 vector<Data> receiveMsgList[5];
 char* receiveBuffer[5];

@@ -75,7 +75,9 @@ void* send(void* socket) {
         if(sendMsgList[index].size() > 0) {
             Data msg = sendMsgList[index][0];
             int len = msg.save2Buffer(sendBuffer[index]);
-            log("send to worker" + to_string(index) + " msg.head=" + msg.head(),file+"send", index);
+            log("send to server" + to_string(index) + " msg.head=" + msg.head(),file + "send", index);
+            log("send to server" + to_string(index) + " msg.toString=" + msg.head(),file + "send", index);
+            log(sendBuffer[index], file + "send", index);
             if(zmq_send(socket, sendBuffer[index], len, 0) < 0) {
                 log("send zmq_send < 0; try again",file+"send", index);
                 sleep(1);
@@ -220,16 +222,34 @@ void getDataWithOutWorkerNum(Node* node, int index, Data ** dataMsg) {
     (*dataMsg)->initData((N-1), 1);
 }
 
-void calc(){
+float sigmoid(float x) {
+    return (1.0 / (1 + exp(-x)));
+}
+
+void calc(void* args){
     log("calc",file, mainId);
+    Node* node =(Node*)args;
     int count = error->end - error->start;
     for(int i = 0; i < count; i++) {
-        double result = 0;
+        float result = 0;
         for(int j = 0; j< N - 1; j++) {
             result += weight->data[j][0] * data->data[i][j];
         }
-        error->data[i][0] = data->data[i][N-1] - 1.0 / (1 + exp(-result));
+        error->data[i][0] = data->data[i][N-1] - sigmoid(result);
     }
+    log("calc error finished",file, mainId);
+    if(node->id == 0 && ITERATOR - hasItered < 10 && ITERATOR - hasItered > 0) {
+        log("worker0 save weight", file, mainId);
+        ofstream out("output/weight_"+ to_string(hasItered) + ".txt",ios::out);
+        for(int i = weight->start; i < weight->end - 1; i++) {
+            out<<weight->data[i][0]<<",";
+        }
+        out<<weight->data[weight->end - 1][0]<<endl;
+        out.close();
+    }
+//    char tmp[10000];
+//    error->save2Buffer(tmp);
+//    log(tmp, file, mainId);
 }
 
 void initLocalData(void* args) {
@@ -335,6 +355,7 @@ void tryPULL(void* args) {
     for(int i = 0; i < len; i++) {
         receiveMsgList[i].pop_back();
     }
+    calc(args);
 }
 
 int tryPUSH(void* args) {
@@ -346,8 +367,6 @@ int tryPUSH(void* args) {
     int len = node->serverNum;
     for(int i = 0; i < len; i++) {
         sendMsgList[i].push_back(*msg);
-//        log("tryPUSH error="+ error->toString(), file,mainId);
-//        log("tryPUSH msg="+ msg->toString(), file,mainId);
     }
     waitSendQueue(len);
     waitReceiveQueue(len);
@@ -365,6 +384,7 @@ int tryPUSH(void* args) {
     for(int i = 0; i < len; i++) {
         receiveMsgList[i].pop_back();
     }
+    calc(args);
     return 1;
 }
 
@@ -396,7 +416,7 @@ void* responseScheduler(void* args, int value) {
     Node* node =(Node*)args;
     Data msg = Data();
     msg.type = OK;
-    if(value > 0) {
+    if(value >= 0) {
         msg.start = 0;
         msg.end = 1;
         msg.timeStamp = getCurrentTime();
@@ -524,7 +544,7 @@ int main(int argc, char *argv[]) {
         log("worker0 save weight", file, mainId);
         ofstream out("output/weight.txt",ios::out);
         for(int i = weight->start; i < weight->end - 1; i++) {
-            out<<weight->data[i][0]<<" ";
+            out<<weight->data[i][0]<<",";
         }
         out<<weight->data[weight->end - 1][0]<<endl;
         out.close();
