@@ -67,6 +67,7 @@ enum msg_type {
 class Data {
 private:
     string d2s(double a) {
+        //TODO 是否可以优化
         string s = to_string(a);
         if(s.find('.')) {
             int right = s.size() - 1;
@@ -79,6 +80,11 @@ private:
         }
         return s;
     }
+
+//    char* d2c() {
+//        char* point = strchr(buffer, '.');
+//        if(!point) return;
+//    }
 
     int getInt(char* str, int* cur, char delim){
         char word[100];
@@ -106,46 +112,7 @@ private:
         return atol(word);
     }
 
-    int getInt(string str, int* cur, char delim){
-        char word[100];
-        int index = 0;
-        while(str[*cur] != delim) {
-            word[index] = str[*cur];
-            index ++;
-            (*cur)++;
-        }
-        word[index] = '\0';
-        (*cur)++;
-        return atoi(word);
-    }
-
-    long getLong(string str, int* cur, char delim){
-        char word[100];
-        int index = 0;
-        while(str[*cur] != delim) {
-            word[index] = str[*cur];
-            index ++;
-            (*cur)++;
-        }
-        word[index] = '\0';
-        (*cur)++;
-        return atol(word);
-    }
-
     double getDouble(char* str, int* cur, char delim){
-        char word[100];
-        int index = 0;
-        while(str[*cur] != delim) {
-            word[index] = str[*cur];
-            index ++;
-            (*cur)++;
-        }
-        word[index] = '\0';
-        (*cur)++;
-        return atof(word);
-    }
-
-    double getDouble(string str, int* cur, char delim){
         char word[100];
         int index = 0;
         while(str[*cur] != delim) {
@@ -185,10 +152,6 @@ public:
         }
     }
 
-//    void setData(vector<vector<double>> d) {
-//
-//    }
-
     void addData(int start, int end, vector<vector<double>> d) {
         for(int i = start; i < end; i++) {
             data[i-this->start] = d[i - start];
@@ -209,120 +172,79 @@ public:
         return sb.toString();
     }
 
-    string toString() {
-        StringBuilder<char> sb = StringBuilder<char>();
-        sb.Append(to_string(type));
-        sb.Append(",");
-        sb.Append(to_string(start));
-        sb.Append(",");
-        sb.Append(to_string(end));
-        sb.Append(",");
-        sb.Append(to_string(timeStamp));
-        sb.Append(";");
-        int first = data.size();
-        if(first > 0) {
-            int second = data[0].size();
-            for(int i = 0; i < first ; i++) {
-                for(int j = 0; j < second; j++) {
-                    sb.Append(d2s(data[i][j]));
-                    if(j == second - 1) {
-                        sb.Append(";");
-                    }
-                    else {
-                        sb.Append(",");
-                    }
-                }
-            }
-        }
-//        string str = sb.toString();
-//        if(str.size() % 2 == 1) {
-//            str = str + "#";
+//    string toString() {
+//        StringBuilder<char> sb = StringBuilder<char>();
+//        sb.Append(to_string(type));
+//        sb.Append(",");
+//        sb.Append(to_string(start));
+//        sb.Append(",");
+//        sb.Append(to_string(end));
+//        sb.Append(",");
+//        sb.Append(to_string(timeStamp));
+//        sb.Append(";");
+//        int first = data.size();
+//        if(first > 0) {
+//            int second = data[0].size();
+//            for(int i = 0; i < first ; i++) {
+//                for(int j = 0; j < second; j++) {
+//                    sb.Append(d2s(data[i][j]));
+//                    if(j == second - 1) {
+//                        sb.Append(";");
+//                    }
+//                    else {
+//                        sb.Append(",");
+//                    }
+//                }
+//            }
 //        }
-        return sb.toString();
-    }
+//        return sb.toString();
+//    }
 
-    string toString(string file) {
-        StringBuilder<char> sb = StringBuilder<char>();
-        sb.Append(to_string(type));
-        sb.Append(",");
-        sb.Append(to_string(start));
-        sb.Append(",");
-        sb.Append(to_string(end));
-        sb.Append(",");
-        sb.Append(to_string(timeStamp));
-        sb.Append(";");
+    int save2Buffer(char * buffer) {
+        string headMsg = head();
+        int len = headMsg.size();
+        memcpy(buffer, headMsg.c_str(), len);
+        char* ptr = buffer + len;
         int first = data.size();
-//        log("tostring first"+ to_string(first),file);
         if(first > 0) {
+            char tmp[20];
             int second = data[0].size();
             for(int i = 0; i < first ; i++) {
                 for(int j = 0; j < second; j++) {
-                    sb.Append(d2s(data[i][j]));
+                    sprintf(tmp, "%f", data[i][j]);
+                    int right = strlen(tmp) - 1;
+                    char* point = strchr(tmp, '.');
+                    if(point != NULL) {
+                        while(tmp[right] == '0') {
+                            tmp[right] = '\0';
+                            right--;
+                        }
+                        if(tmp[right] == '.') {
+                            tmp[right] = '\0';
+                            right--;
+                        }
+                    }
+                    memcpy(ptr, tmp, right + 1);
+                    ptr += right + 1;
                     if(j == second - 1) {
-                        sb.Append(";");
+                        *ptr = ';';
                     }
                     else {
-                        sb.Append(",");
+                        *ptr = ',';
                     }
+                    ptr += 1;
                 }
             }
         }
-//        string str = sb.toString();
-//        if(str.size() % 2 == 1) {
-//            str = str + "#";
-//        }
-        return sb.toString();
+        *ptr = '\0';
+        return ptr - buffer;
     }
 
     Data() {
 
     }
 
-    Data(string str) {
-        if(str.size() == 0) {
-            return;
-        }
-        while(str[str.size() - 1] != ';') {
-            str = str.substr(0, str.size() - 1);
-        }
-        int cur = 0;
-        int one = getInt(str, &cur, ',');
-        type = msg_type(one);
-        start = getInt(str, &cur, ',');
-        end = getInt(str, &cur, ',');
-        timeStamp = getLong(str, &cur, ';');
-        if(cur >= str.size()) {
-            return;
-        }
-        int second = 1;
-        int k = cur;
-        while(str[k] != ';') {
-            if(str[k] == ',') {
-                second ++;
-            }
-            k++;
-        }
-        int len = str.size();
-        int count = 0;
-        int num = this->end - this->start;
-        if(count >= num) {
-            return;
-        }
-        while(cur < len) {
-            vector<double> vector2;
-            for(int i = 0; i< second - 1; i++) {
-                vector2.push_back(getDouble(str, &cur, ','));
-            }
-            vector2.push_back(getDouble(str, &cur, ';'));
-            data.push_back(vector2);
-            count++;
-            if(count >= num) {
-                break;
-            }
-        }
-    }
-
-    Data(char* str) {
+    void parseData(char* str) {
         if(strlen(str) == 0) {
             this->type = UNKNOWN;
             return;
@@ -365,106 +287,52 @@ public:
                 break;
             }
         }
+//        if(str.size() == 0) {
+//            return;
+//        }
+//        while(str[str.size() - 1] != ';') {
+//            str = str.substr(0, str.size() - 1);
+//        }
+//        int cur = 0;
+//        int one = getInt(str, &cur, ',');
+//        type = msg_type(one);
+//        start = getInt(str, &cur, ',');
+//        end = getInt(str, &cur, ',');
+//        timeStamp = getLong(str, &cur, ';');
+//        if(cur >= str.size()) {
+//            return;
+//        }
+//        int second = 1;
+//        int k = cur;
+//        while(str[k] != ';') {
+//            if(str[k] == ',') {
+//                second ++;
+//            }
+//            k++;
+//        }
+//        int len = str.size();
+//        int count = 0;
+//        int num = this->end - this->start;
+//        if(count >= num) {
+//            return;
+//        }
+//        while(cur < len) {
+//            vector<double> vector2;
+//            for(int i = 0; i< second - 1; i++) {
+//                vector2.push_back(getDouble(str, &cur, ','));
+//            }
+//            vector2.push_back(getDouble(str, &cur, ';'));
+//            data.push_back(vector2);
+//            count++;
+//            if(count >= num) {
+//                break;
+//            }
+//        }
     }
 
-    Data(char* str,string file, int mainId) {
-        if(strlen(str) == 0) {
-            return;
-        }
-        while(str[strlen(str) - 1] != ';') {
-            str[strlen(str) - 1] = '\0';
-        }
-        int len = strlen(str);
-        int cur = 0;
-        log("test data parse param1", file, mainId);
-        int one = getInt(str, &cur, ',');
-        log("test data parse param2", file, mainId);
-        type = msg_type(one);
-        start = getInt(str, &cur, ',');
-        log("test data parse param3", file, mainId);
-        end = getInt(str, &cur, ',');
-        timeStamp = getLong(str, &cur, ';');
-        log("test data parse param4", file, mainId);
-        if(cur >= len) {
-            return;
-        }
-        log("test data parse param5", file, mainId);
-        int second = 1;
-        int k = cur;
-        while(str[k] != ';') {
-            if(str[k] == ',') {
-                second ++;
-            }
-            k++;
-        }
-        log("test data parse param5", file, mainId);
-        int count = 0;
-        int num = this->end - this->start;
-        if(count >= num) {
-            return;
-        }
-        while(cur < len) {
-            log("cur = " + to_string(cur), file, mainId);
-            log("len = " + to_string(len), file, mainId);
-            vector<double> vector2;
-            for(int i = 0; i< second - 1; i++) {
-                vector2.push_back(getDouble(str, &cur, ','));
-            }
-            vector2.push_back(getDouble(str, &cur, ';'));
-            data.push_back(vector2);
-            count++;
-            if(count >= num) {
-                break;
-            }
-        }
-    }
+    Data(char* str) {
+        parseData(str);
 
-    Data(string str,string file) {
-        if(str[str.size() - 1] != ';') {
-            str = str.substr(0, str.size() - 1);
-        }
-        int len = str.size();
-        int cur = 0;
-        int one = getInt(str, &cur, ',');
-//        log("str = "+str, file);
-//        log("one = " + to_string(one), file);
-//        log("cur = " + to_string(cur), file);
-        type = msg_type(one);
-        start = getInt(str, &cur, ',');
-//        log("start = " + to_string(start), file);
-//        log("cur = " + to_string(cur), file);
-        end = getInt(str, &cur, ',');
-        timeStamp = getLong(str, &cur, ';');
-//        log("end = " + to_string(end), file);
-//        log("cur = " + to_string(cur), file);
-        if(cur >= len) {
-            return;
-        }
-        int second = 1;
-        int k = cur;
-        while(str[k] != ';') {
-            if(str[k] == ',') {
-                second ++;
-            }
-            k++;
-        }
-        int first = 0;
-        int count = 0;
-        int num = this->end - this->start;
-        if(count >= num) {
-            return;
-        }
-        while(cur < len) {
-            for(int i = 0; i< second - 1; i++) {
-                data[first].push_back(getDouble(str, &cur, ','));
-            }
-            data[first].push_back(getDouble(str, &cur, ';'));
-            first++;
-            count++;
-            if(count >= num) {
-                break;
-            }
-        }
     }
 };
 

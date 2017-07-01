@@ -11,8 +11,10 @@ def proc(file=None, type=None):
     label = data[41]
     # del data[40]
     del data[41]
-    print(data.columns)
     print ("origin:"+str(data.columns.shape[0]))
+    print ("origin:"+str(data.index.shape[0]))
+    print (data.columns)
+    print (data.index)
     data = pd.get_dummies(data)
     print("get_dummies:"+str(data.columns.shape[0]))
     label = pd.get_dummies(label)
@@ -30,12 +32,14 @@ def proc(file=None, type=None):
     data[data.columns.shape[0]] = label[0]
     print(data.columns.shape[0])
     print(data.index.shape[0])
-    data.to_csv(type+".txt", index=False, header=False, sep=" ")
+    print(data.columns)
+    print(data.index)
+    data.to_csv("data/" + type + ".txt", index=False, header=False, sep=" ")
 
 
 if __name__ == '__main__':
-    proc("census-income.data", "train")
-    proc("census-income.test", "test")
+    proc("data/census-income.data", "train")
+    proc("data/census-income.test", "test")
 # print(train.index) =  RangeIndex(start=0, stop=199522, step=1)
     # print(train.columns)
     # Index([u'train.columns:73', u'train.columns: Not in universe',

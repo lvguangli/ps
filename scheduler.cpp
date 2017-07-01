@@ -44,16 +44,17 @@ void* notifyNodesADDMSG(void* args) {
     msg.start = 0;
     msg.end = 1;
     msg.initData(1,2);
-    string str = msg.toString();
+    char str[100];
+    int size = msg.save2Buffer(str);
     string nodeName = "server" + to_string(index);
     if(index >= scheduler->serverNum){
         nodeName = "worker" + to_string(index - scheduler->serverNum);
     }
 
-    log(" send msg to " + nodeName + " error.size " + to_string(str.size()) , file, mainId);
-    int len = zmq_send(socket, str.c_str(), str.size(), 0);
+    log(" send msg to " + nodeName + " size " + to_string(size) , file, mainId);
+    int len = zmq_send(socket, str, size, 0);
     while(len < 0) {
-        len = zmq_send(socket, str.c_str(), str.size(), 0);
+        len = zmq_send(socket, str, size, 0);
     }
     char tmp[OKMSGLEN];
     len = zmq_recv(socket, tmp, OKMSGLEN, 0);
@@ -62,7 +63,8 @@ void* notifyNodesADDMSG(void* args) {
     }
     tmp[len] = '\0';
     msg = Data(tmp);
-    log("receive msg from " + to_string(index) + " size =  " + to_string(strlen(tmp)) + " msg=" + msg.toString(),file, mainId);
+    log("receive msg from " + to_string(index) + " size =  " + to_string(strlen(tmp)) + " msg=",file, mainId);
+    log(tmp,file, mainId);
     hasIter[index] = (int) msg.data[0][0];
     log("receive msg from index=" + to_string(index) + " hasIter=" + to_string(hasIter[index]),file, mainId);
     return NULL;
@@ -96,7 +98,7 @@ void* stopNode(void* args) {
     char tmp[MAXLEN];
     zmq_recv(socket, tmp, MAXLEN, 0);
     msg = Data(tmp);
-    log("receive msg from server " + to_string(index) + " size =  " + to_string(strlen(tmp)) + msg.toString(),file, mainId);
+    log("receive msg from server " + to_string(index) + " size =  " + to_string(strlen(tmp)),file, mainId);
     return NULL;
 }
 
@@ -118,11 +120,12 @@ void* notifyNodesRESTART(void* args) {
     msg.start = 0;
     msg.end = 1;
     msg.initData(1, hasIter[0]);
-    string str = msg.toString();
-    log("send msg.size " + to_string(str.size()) + "msg=" + str , file, mainId);
-    int len = zmq_send(socket, str.c_str(), str.size(), 0);
+    char str[100];
+    int size = msg.save2Buffer(str);
+    log("send msg.size " + to_string(size) + "msg=" + str , file, mainId);
+    int len = zmq_send(socket, str, size, 0);
     while(len < 0) {
-        len = zmq_send(socket, str.c_str(), str.size(), 0);
+        len = zmq_send(socket, str, size, 0);
     }
     char tmp[OKMSGLEN];
     len = zmq_recv(socket, tmp, OKMSGLEN, 0);
@@ -133,7 +136,8 @@ void* notifyNodesRESTART(void* args) {
     if(msg.type != OK) {
         exit(0);
     }
-    log("receive msg from newWorker " + to_string(index) + " size =  " + to_string(strlen(tmp))  + " msg=" + msg.toString(),file, mainId);
+    log("receive msg from newWorker " + to_string(index) + " size =  " + to_string(strlen(tmp))  + " msg=", file, mainId);
+    log(tmp, file, mainId);
     return NULL;
 }
 

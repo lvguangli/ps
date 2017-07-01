@@ -15,7 +15,7 @@
 
 using namespace std;
 const int OKMSGLEN = 100;
-int iRcvTimeout = 20000;// millsecond
+int iRcvTimeout = 60000;// millsecond
 
 long getCurrentTime()
 {
@@ -80,9 +80,9 @@ void generateNodeShell(Node *node, string args) {
         cmd = cmd + "./scheduler " + node->toString();
     }
     cmd = cmd  + " " + args + " &";
-    string file = node->name + args +  "fork.sh";
-    cout<<file<<endl;
-    cout<<cmd<<endl;
+    string file = "/Users/sahara/CLionProjects/ps/bin/" + node->name + args +  "fork.sh";
+//    cout<<file<<endl;
+//    cout<<cmd<<endl;
     ofstream out(file,ios::out);
     out<<cmd<<endl;
     out.close();
