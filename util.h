@@ -79,7 +79,7 @@ void generateNodeShell(Node *node, string args) {
     } else if(node->name[0] == 's'&& node->name[1] == 'c') {
         cmd = cmd + "./scheduler " + node->toString();
     }
-    cmd = cmd  + " " + args + " &'";
+    cmd = cmd  + " " + args + " &' &";
     string file = "/Users/sahara/CLionProjects/ps/bin/" + node->name + args +  "fork.sh";
 //    cout<<file<<endl;
     cout<<"generateNodeShell:"<<cmd<<endl;
