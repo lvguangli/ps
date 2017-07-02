@@ -13,6 +13,7 @@
 #include "log.h"
 #include "constant.h"
 #include <unistd.h>
+#include <cmath>
 
 using namespace std;
 double alpha = 0.01;

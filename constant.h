@@ -16,16 +16,16 @@ using namespace std;
 //const int N = 410;
 //const string trainFile = "data/train.txt";
 //static int ITERATOR = 50;
-static int M = 32;
-static int N = 410;
-static string trainFile = "train.csv";
-static int ITERATOR = 10;
+int M = 32;
+int N = 410;
+string trainFile = "train.csv";
+int ITERATOR = 10;
 
-static string shosts[][2] = {{"192.168.1.100","14535"}, {"192.168.1.100","14331"}};
-static string whosts[][3] = {{"192.168.1.100","12642"}, {"192.168.1.100","12643"}, {"192.168.1.100","12644"}};
-static string schedulerIP[2] = {"192.168.1.100","12400"};
+string shosts[][2] = {{"192.168.1.100","14535"}, {"192.168.1.100","14331"}};
+string whosts[][3] = {{"192.168.1.100","12642"}, {"192.168.1.100","12643"}, {"192.168.1.100","12644"}};
+string schedulerIP[2] = {"192.168.1.100","12400"};
 
-static string configFile = "config.conf";
+string configFile = "config.conf";
 string getStr(string str, int* cur, char delim) {
     int first = *cur;
     while(str[*cur] != delim) {
@@ -66,10 +66,13 @@ void initConfig() {
         } else if(strcmp(name.c_str(), "ITERATOR") == 0) {
             ITERATOR = atoi(getStr(line, &cur, ';').c_str());
         } else if(strcmp(name.c_str(), "serverHosts") == 0) {
+//            cout<<"serverHosts get"<<endl;
             int len = strlen(line);
             int start = 0;
             while(cur < len) {
                 shosts[start/2][start%2] = getStr(line, &cur, ';');
+//                cout<<start<<" "<<start/2<<" "<<start%2<<endl;
+//                cout<<shosts[start/2][start%2]<<endl;
                 start++;
             }
         } else if(strcmp(name.c_str(), "workerHosts") == 0) {
@@ -89,6 +92,8 @@ void initConfig() {
         }
     }
     cout<<"ITERATOR="<<ITERATOR<<endl;
+    cout<<whosts[0][0]<<" "<<whosts[1][0]<<" "<<endl;
+    cout<<shosts[0][0]<<" "<<shosts[1][0]<<" "<<endl;
 }
 //ifstream input(train);
 

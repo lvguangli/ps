@@ -15,6 +15,8 @@ string file = "generateScript";
 int mainId = 6;
 
 void generateScript(char argv[3][10]) {
+    cout<<"generateScript:"<<whosts[0][0]<<" "<<whosts[1][0]<<" "<<endl;
+    cout<<"generateScript:"<<shosts[0][0]<<" "<<shosts[1][0]<<" "<<endl;
     int serverNum = atoi(argv[0]);
     int workerNum = atoi(argv[1]);
     scheduler = new Node("scheduler",9,schedulerIP[0], schedulerIP[1], serverNum, workerNum);
@@ -50,6 +52,14 @@ void generateScript(char argv[3][10]) {
     for(int i = 0; i < workerNum; i ++) {
         scheduler->addLinks(workers[i]->getTCP());
     }
+
+    for(int i = 0; i < serverNum; i ++) {
+        cout<<"check:"<<servers[i]->toString()<<endl;
+    }
+    for(int i = 0; i < workerNum; i ++) {
+        cout<<"check:"<<workers[i]->toString()<<endl;
+    }
+
     if(strcmp(argv[2], "start") == 0) {
         for(int i = 0; i < servers.size(); i++) {
             generateNodeShell(servers[i],"");
@@ -69,6 +79,9 @@ void generateScript(char argv[3][10]) {
 }
 
 int main(int argc, char*argv[]) {
+    initConfig();
+    cout<<"main:"<<whosts[0][0]<<" "<<whosts[1][0]<<" "<<endl;
+    cout<<"main:"<<shosts[0][0]<<" "<<shosts[1][0]<<" "<<endl;
     log(file, mainId);
     char start[3][10] = {"2","2","start"};
     char middle[3][10] = {"2","3","middle"};

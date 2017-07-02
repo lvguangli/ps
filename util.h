@@ -69,7 +69,7 @@ void bindSW(Node* s, Node* w) {
 void generateNodeShell(Node *node, string args) {
     cout<<node->toString()<<endl;
 //    string cmd = "ssh -o StrictHostKeyChecking=no " + node->host + " 'cd /Users/sahara/CLionProjects/ps; ";
-    string cmd = "ssh sahara@" + node->host + " && cd /Users/sahara/CLionProjects/ps && ";
+    string cmd = "ssh sahara@" + node->host + " 'cd /Users/sahara/CLionProjects/ps && ";
     if(node->name[0] == 's' && node->name[1] == 'e') {
         cmd = cmd + "./server " + node->toString();
     } else if(node->name[0] == 'w') {
@@ -79,10 +79,10 @@ void generateNodeShell(Node *node, string args) {
     } else if(node->name[0] == 's'&& node->name[1] == 'c') {
         cmd = cmd + "./scheduler " + node->toString();
     }
-    cmd = cmd  + " " + args + " &";
+    cmd = cmd  + " " + args + " &'";
     string file = "/Users/sahara/CLionProjects/ps/bin/" + node->name + args +  "fork.sh";
 //    cout<<file<<endl;
-//    cout<<cmd<<endl;
+    cout<<"generateNodeShell:"<<cmd<<endl;
     ofstream out(file,ios::out);
     out<<cmd<<endl;
     out.close();

@@ -1,6 +1,7 @@
 import pandas as pd
 import csv
 import math
+import sys
 
 
 def sigmoid(inX):
@@ -63,4 +64,5 @@ def test(test_file=None, weight_file=None):
 
 
 if __name__ == '__main__':
-    test("data/test.csv", "output/weight_200.txt")
+    suf = sys.argv[1]
+    test('data/train.csv', 'output/weight_'+ suf +'.txt')
